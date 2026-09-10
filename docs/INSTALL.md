@@ -83,6 +83,14 @@ Microsoft). `cumesh` and `flex_gemm` have repositories of their own,
 TRELLIS.2 setup script fetches them from there. The engine imports all three at
 module level and cannot run without them.
 
+**On Windows, Python 3.12, torch 2.8.0+cu128, you can skip this step.** The
+four extensions are published prebuilt, under
+[the `wheels-cp312-cu128` release](https://github.com/Quentincls/localmesh-engine/releases/tag/wheels-cp312-cu128):
+download the four `.whl` and `pip install --no-deps` them, then go to step 4.
+They are builds of other people's MIT code, taken unchanged from an environment
+built by following this page. On any other Python, platform or CUDA, they will
+not load and you build from source below.
+
 Build them outside the repository, from the folder above it:
 
 ```

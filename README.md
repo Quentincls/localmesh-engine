@@ -143,7 +143,10 @@ export LOCALMESH_ROOT=/path/to/runtime           # the folder that holds models/
 
 Full walkthrough in **[docs/INSTALL.md](docs/INSTALL.md)**, and where every
 weight file goes in **[docs/WEIGHTS.md](docs/WEIGHTS.md)**. Nothing generates
-until the three CUDA extensions below are built. Two obstacles are worth
+until the three CUDA extensions below are built — on Windows with Python 3.12
+and torch 2.8.0+cu128 they are
+[published prebuilt](https://github.com/Quentincls/localmesh-engine/releases/tag/wheels-cp312-cu128),
+with natten. Two obstacles are worth
 naming here.
 
 **Three CUDA extensions are not on PyPI.** `o_voxel` is the `o-voxel/`
