@@ -22,11 +22,11 @@ generation service in the loop.
 </div>
 
 ```bash
-python -m localmesh_engine face.png --droite right.png --gauche left.png --dos back.png --vers out/
+python -m localmesh_engine face.png --right right.png --left left.png --back back.png --to out/
 ```
 
 One photograph works too, and is the shorter install:
-`python -m localmesh_engine photo.png --vers out/`.
+`python -m localmesh_engine photo.png --to out/`.
 
 ---
 
@@ -175,21 +175,23 @@ before the engine starts.
 
 ## Use
 
-The command line flags are French, matching the code.
-
 ```bash
 # one photograph
-python -m localmesh_engine photo.png --vers out/
+python -m localmesh_engine photo.png --to out/
 
 # four sides of the same subject
-python -m localmesh_engine face.png --droite right.png --gauche left.png --dos back.png --vers out/
+python -m localmesh_engine face.png --right right.png --left left.png --back back.png --to out/
 
 # a tier and a fixed seed
-python -m localmesh_engine photo.png --palier high --graine 42 --vers out/
+python -m localmesh_engine photo.png --tier high --seed 42 --to out/
 ```
 
-`--palier` takes `draft`, `standard`, `high` or `max`, and defaults to
-`standard`. `--graine` at -1 draws a random one. Progress is written to
+`--tier` takes `draft`, `standard`, `high` or `max`, and defaults to
+`standard`. `--seed` at -1 draws a random one.
+
+The code is written in French, and every flag also answers to its French
+name: `--droite`, `--gauche`, `--dos`, `--palier`, `--graine`, `--vers`. The
+two spellings are the same flag. Progress is written to
 standard error, one line per stage, so the result path on standard output
 stays clean. The four view path wants all three sides: an incomplete set is
 refused rather than silently downgraded.
@@ -228,7 +230,7 @@ were made from. They were generated with ChatGPT Image, so they ship with the
 repository.
 
 ```bash
-python -m localmesh_engine examples/samurai/front.png   --droite examples/samurai/right.png   --gauche examples/samurai/left.png   --dos examples/samurai/back.png   --palier standard --graine 101 --vers out/
+python -m localmesh_engine examples/samurai/front.png   --right examples/samurai/right.png   --left examples/samurai/left.png   --back examples/samurai/back.png   --tier standard --seed 101 --to out/
 ```
 
 On an RTX 4060 Laptop with 8 GB this takes 8 minutes and returns a mesh of

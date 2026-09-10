@@ -36,15 +36,23 @@ def main(argv: list[str] | None = None) -> int:
                     "ou de quatre côtés du même sujet.")
     p.add_argument("photo", type=Path,
                    help="la photo de face ; c'est elle qui porte la forme")
-    p.add_argument("--droite", type=Path, help="le côté droit du sujet")
-    p.add_argument("--gauche", type=Path, help="le côté gauche du sujet")
-    p.add_argument("--dos", type=Path, help="le dos du sujet")
-    p.add_argument("--palier", default="standard",
+    # CHAQUE OPTION PORTE SON NOM ANGLAIS A COTE DU FRANCAIS. Le code est
+    # ecrit en francais, les options l'etaient aussi, et un lecteur anglophone
+    # se cognait sur `--dos` sans deviner qu'il s'agit du dos. Les deux
+    # graphies marchent. `dest` est fige : sans lui, argparse prendrait le
+    # PREMIER nom long comme attribut et tout ce qui suit lirait `a.right`.
+    p.add_argument("--droite", "--right", dest="droite", type=Path,
+                   help="le côté droit du sujet")
+    p.add_argument("--gauche", "--left", dest="gauche", type=Path,
+                   help="le côté gauche du sujet")
+    p.add_argument("--dos", "--back", dest="dos", type=Path,
+                   help="le dos du sujet")
+    p.add_argument("--palier", "--tier", dest="palier", default="standard",
                    choices=["draft", "standard", "high", "max"],
                    help="la recette de qualité (voir docs/RECIPES.md)")
-    p.add_argument("--graine", type=int, default=-1,
+    p.add_argument("--graine", "--seed", dest="graine", type=int, default=-1,
                    help="la graine ; -1 en tire une au hasard")
-    p.add_argument("--vers", type=Path, default=Path("."),
+    p.add_argument("--vers", "--to", dest="vers", type=Path, default=Path("."),
                    help="le dossier où déposer l'objet")
     a = p.parse_args(argv)
 

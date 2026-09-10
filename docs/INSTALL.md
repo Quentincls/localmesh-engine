@@ -36,7 +36,7 @@ weights.
 | Disk | about 9.5 GB of weights for the single photo path, 14.3 GB with the four views |
 
 The four quality tiers are `draft`, `standard`, `high` and `max`; those four
-identifiers are what `--palier` takes, and they are written Draft, Standard,
+identifiers are what `--tier` takes, and they are written Draft, Standard,
 Detailed and Extreme where these pages spell them out. Three of the four
 declare no memory floor, so an 8 GB card serves `draft`, `standard` and `high`.
 `max` asks for 24 GB and refuses itself below that.
@@ -230,11 +230,11 @@ stay offline needs that cache primed first.
 ## 8. Check that it works
 
 ```
-python -m localmesh_engine photo.png --palier draft --graine 42 --vers sortie/
+python -m localmesh_engine photo.png --tier draft --seed 42 --to sortie/
 ```
 
 The installed command is the same entry point: `localmesh-engine photo.png
---palier draft --graine 42 --vers sortie/`. Progress goes to stderr, one line
+--tier draft --seed 42 --to sortie/`. Progress goes to stderr, one line
 per stage, and the shape stage ticks once per sampling step. The path of the
 file goes to stdout, resolved to an absolute path.
 
@@ -266,13 +266,13 @@ starts, and the first generation also downloads the cutout model. Measured on
 the RTX 4060 Laptop with 8 GB, over six subjects: `standard` with four views
 takes 6 min 30 to 8 min 30, `high` 9 min 20 to 13 min. Texture is about 60
 percent of that time. `draft` is the shortest of the four tiers, and the check
-above uses it: a single photo at `--palier draft` is the fastest run the engine
+above uses it: a single photo at `--tier draft` is the fastest run the engine
 offers.
 
 Then the four views, once step 5 and the multi-view weights are in place:
 
 ```
-python -m localmesh_engine face.png --droite d.png --gauche g.png --dos b.png --vers sortie/
+python -m localmesh_engine face.png --right d.png --left g.png --back b.png --to sortie/
 ```
 
 All three sides are required. Two or three views are refused rather than served
@@ -293,9 +293,9 @@ under a name they were not measured under.
 | An error naming `models/facebook/dinov3-vitl16-pretrain-lvd1689m` | DINOv3 is not in place, or access is not granted yet | step 0, then docs/WEIGHTS.md. Both paths need it |
 | `The multi-view module is not installed. Missing: ...` | a four view weight file is absent AND the ported path was asked for by name (`chemin_mv="porte"`) | the message lists what is missing, file by file. docs/WEIGHTS.md. Unasked, missing weights do not raise: the run falls back to the older blend without saying so |
 | `ModuleNotFoundError: No module named 'natten'` in the middle of a four view run | natten is not installed | step 5 |
-| `torch.OutOfMemoryError: CUDA out of memory` | the tier is too high for this card, or the card is shared | drop to `--palier standard` or `--palier draft`, and close anything else holding video memory. A 3D viewer open during a run takes its share of the same 8 GB |
+| `torch.OutOfMemoryError: CUDA out of memory` | the tier is too high for this card, or the card is shared | drop to `--tier standard` or `--tier draft`, and close anything else holding video memory. A 3D viewer open during a run takes its share of the same 8 GB |
 | `le palier max demande plus de mémoire que cette carte n'en a`, exit code 3 | `max` declares a 24 GB floor | use `draft`, `standard` or `high`. The check allows half a gigabyte of slack |
-| `le multivue attend les TROIS côtés` | one side is missing | pass `--droite`, `--gauche` and `--dos` together |
+| `le multivue attend les TROIS côtés` | one side is missing | pass `--right`, `--left` and `--back` together |
 | `No CUDA GPU visible.` | torch sees no card | check the driver, and check that `torch.cuda.is_available()` in step 2 returned `True` |
 
 The four tiers, what each one costs and what it buys, are in
