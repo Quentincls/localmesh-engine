@@ -139,13 +139,18 @@ and returns HTTP 401 until access is granted.
 ### Multi-view weights, hosted by us
 
 Three FP8 files plus the field network, on [Qtn-Cls/LocalMeshEngine](https://huggingface.co/Qtn-Cls/LocalMeshEngine).
-That repository is flat: its seven files sit at the root, and the command below
-lands them exactly where the engine looks. There is nothing to move afterwards.
+That repository is laid out exactly like the folder the engine reads, so the
+download lands where it belongs and there is nothing to move afterwards. The
+multi-view files live under `multivue/` there, which is why the target is
+`models/` and not `models/multivue/`:
 
 ```
-hf download Qtn-Cls/LocalMeshEngine \
-  --local-dir "$LOCALMESH_ROOT/models/multivue"
+hf download Qtn-Cls/LocalMeshEngine --include "multivue/*" \
+  --local-dir "$LOCALMESH_ROOT/models"
 ```
+
+Drop the `--include` and you get the single photo weights in the same pass;
+that is [the short way](#the-short-way) above.
 
 `structure_mv_fp8`, `forme_512_mv_fp8` and `forme_1024_mv_fp8` are our own FP8
 conversions of the official BF16 weights of
@@ -185,7 +190,7 @@ profile actually shows, rather than trusting the slot it was dropped into.
 **It came down with the four view weights, and there is nothing to do.** The
 `hf download Qtn-Cls/LocalMeshEngine` above carries `cameras/` whole: the
 weights, the config, the upstream source tree and the three pure Python
-packages it needs, 204 files, repackaged under the same Apache-2.0 as the
+packages it needs, 203 files, repackaged under the same Apache-2.0 as the
 original. They sit beside the weights rather than in your environment, so
 installing this engine cannot disturb another project.
 

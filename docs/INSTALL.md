@@ -172,12 +172,16 @@ then runs, slowly, without ever saying what happened.
 Check what you got before going further:
 
 ```bash
-python -c "import natten; print(natten.has_cuda())"
+python -c "import natten; print(natten.HAS_LIBNATTEN)"
 ```
 
 `True` or the four view path is not usable. If it prints `False`, uninstall,
 make sure `torch==2.8.0+cu128` is the one in the environment, and build again
 with `--no-build-isolation`.
+
+`HAS_LIBNATTEN` is the flag natten 0.21 exposes for this; `has_cuda()` was the
+name in earlier releases and is gone, so that call raises `AttributeError` on
+the version pinned here.
 
 `pip install -e ".[multiview]"` declares the same dependency but goes through
 pip's resolver, so prefer the line above. Reference version on the machine
