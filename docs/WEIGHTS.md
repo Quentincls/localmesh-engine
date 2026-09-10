@@ -42,17 +42,46 @@ without it `Poids.manquants` reports the file as missing. `pipeline.lumengen.jso
 is not yours to provide, the engine writes it on first load: a side-car copy of
 the descriptor with the background remover swapped for BiRefNet_HR.
 
+## The short way
+
+Everything that can be redistributed sits in one repository, laid out exactly
+like the folder the engine reads. One command:
+
+```bash
+hf download Qtn-Cls/LocalMeshEngine --local-dir "$LOCALMESH_ROOT/models"
+```
+
+That places `TRELLIS.2-4B/`, `microsoft/` and `multivue/` — 13.1 GB, the single
+photo path and the four view path together. Add `--exclude "multivue/*"` for
+the single photo path alone, 8.3 GB.
+
+Those are not our weights. They are TRELLIS.2-4B in FP8 (visualbruno, MIT), the
+sparse structure decoder (Microsoft, MIT), Pixal3D's multi-view weights in FP8
+conversions we made (TencentARC, MIT), the NAF field network (valeo.ai,
+Apache-2.0) and DA3-BASE (Apache-2.0). Rehosted unchanged, so that one
+`hf download` replaces six. Each set is listed below with its own source, and
+taking it from there instead works just as well.
+
+**One set is not in there, and cannot be: DINOv3.** Meta gates it, and access is
+granted by a human. Ask for it first, because nothing generates without it, and
+approval is not instant:
+[facebook/dinov3-vitl16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m).
+Its own section below has the command.
+
+BiRefNet_HR, 444 MB, is the one set the engine fetches for you, on the first
+generation.
+
 ## The sets
 
 | Set | Size | Source | Licence | Required |
 |---|---|---|---|---|
-| TRELLIS.2-4B, FP8 | 8.1 GB | [visualbruno/TRELLIS.2-4B-FP8](https://huggingface.co/visualbruno/TRELLIS.2-4B-FP8) | MIT | yes |
-| Sparse structure decoder | 148 MB | [microsoft/TRELLIS-image-large](https://huggingface.co/microsoft/TRELLIS-image-large) | MIT | yes |
+| TRELLIS.2-4B, FP8 | 8.1 GB | [visualbruno/TRELLIS.2-4B-FP8](https://huggingface.co/visualbruno/TRELLIS.2-4B-FP8), also mirrored in ours | MIT | yes |
+| Sparse structure decoder | 148 MB | [microsoft/TRELLIS-image-large](https://huggingface.co/microsoft/TRELLIS-image-large), also mirrored in ours | MIT | yes |
 | DINOv3 ViT-L/16 | 1.2 GB | [facebook/dinov3-vitl16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m) | DINOv3 License, Meta | yes, manual access |
 | BiRefNet_HR | 444 MB | [ZhengPeng7/BiRefNet_HR](https://huggingface.co/ZhengPeng7/BiRefNet_HR) | MIT | yes, fetched automatically |
 | Multi-view structure and shape, FP8 | 4.27 GB | [Qtn-Cls/LocalMeshEngine](https://huggingface.co/Qtn-Cls/LocalMeshEngine) | MIT, Copyright (c) 2026 Tencent | four view path |
 | Field network (NAF) | 2.7 MB | [Qtn-Cls/LocalMeshEngine](https://huggingface.co/Qtn-Cls/LocalMeshEngine) | Apache-2.0, valeo.ai | four view path |
-| Side measurement (DA3-BASE) | 544 MB | [depth-anything/DA3-BASE](https://huggingface.co/depth-anything/DA3-BASE) | Apache-2.0 | four view path, no hard stop without it |
+| Side measurement (DA3-BASE) | 544 MB | [depth-anything/DA3-BASE](https://huggingface.co/depth-anything/DA3-BASE), also mirrored in ours | Apache-2.0 | four view path, no hard stop without it |
 
 Commands below use `hf`, the command shipped with `huggingface_hub`; the package
 pins `huggingface_hub>=1.0`, where `hf` is the only CLI. They are written for a
