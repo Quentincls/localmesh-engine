@@ -1,0 +1,50 @@
+name: Something does not work
+description: A crash, a wrong result, an install that will not finish.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you write: the two things that break most often are the three
+        CUDA extensions and the weights layout. Both are in
+        [docs/INSTALL.md](../blob/main/docs/INSTALL.md) and
+        [docs/WEIGHTS.md](../blob/main/docs/WEIGHTS.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, and what came back. Paste the full error.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card and VRAM
+      placeholder: RTX 4060 Laptop, 8 GB
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: OS, Python, torch, CUDA
+      placeholder: Windows 11, Python 3.12.13, torch 2.8.0+cu128, CUDA 12.8
+    validations:
+      required: true
+  - type: dropdown
+    id: path
+    attributes:
+      label: Which path
+      options:
+        - One photograph
+        - Four views
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you already checked
+      description: >-
+        Does `python -c "import cumesh, o_voxel, flex_gemm"` work? Is the
+        weights tree the one in docs/WEIGHTS.md?

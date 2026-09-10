@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: LocalMesh Engine
+message: If you use this engine in your work, please cite it.
+type: software
+authors:
+  - family-names: Colus
+    given-names: Quentin
+repository-code: https://github.com/Quentincls/localmesh-engine
+url: https://local-mesh.com/localmesh-engine/
+license: Apache-2.0
+version: 1.0.0
+abstract: >-
+  A photograph, or four sides of the same subject, into a textured glTF mesh,
+  on a single NVIDIA card with 8 GB, offline. Built on TRELLIS.2, with a four
+  view path, measured input angles, a common frame for all views, and
+  materials a viewer can read.
+keywords:
+  - image-to-3d
+  - mesh generation
+  - multi-view
+  - glTF
+  - TRELLIS

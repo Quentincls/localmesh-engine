@@ -1,0 +1,115 @@
+{
+  "repository": "valeoai/NAF",
+  "revision": "37f2dfc180f2de53d98bd601109c0da0dd6b0f43",
+  "files": [
+    {
+      "path": "LICENSE",
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/LICENSE",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "path": "hubconf.py",
+      "file": "hubconf.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/hubconf.py",
+      "sha256": "b81540828672fe56214a93705e4484a92cbc5569caf95b07fb9e49cb3f5adb69"
+    },
+    {
+      "path": "src/layers/__init__.py",
+      "file": "src__layers____init__.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/layers/__init__.py",
+      "sha256": "a0a71ab14730424461f92e83000105015686bb0f94cc7d3aeffc352c184c0fad"
+    },
+    {
+      "path": "src/layers/attentions.py",
+      "file": "src__layers__attentions.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/layers/attentions.py",
+      "sha256": "cfa8c83f4ec4f70fadf42d06aa9050f912a795a65e71c7cdde07d13b9c3c81a1"
+    },
+    {
+      "path": "src/layers/convolutions.py",
+      "file": "src__layers__convolutions.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/layers/convolutions.py",
+      "sha256": "75c98b0b0df79774ee875160f1b00e6e0ef28b16136fd122cf2b8640e4765041"
+    },
+    {
+      "path": "src/model/__init__.py",
+      "file": "src__model____init__.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/__init__.py",
+      "sha256": "59c75c08b417d1a3b8fb213c347329d554d99465bfd27a5ea104043e6c1ffb8b"
+    },
+    {
+      "path": "src/model/anyup.py",
+      "file": "src__model__anyup.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/anyup.py",
+      "sha256": "b3c5c9f3d11bdd7d43d2fc4404c4a17433201bb41d1a0d4fd91e63bf580c9e72"
+    },
+    {
+      "path": "src/model/base.py",
+      "file": "src__model__base.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/base.py",
+      "sha256": "f3dd54da2ce72637ed26f90d8276cf2b5c0ebdf05506828fd457212e6b51e0eb"
+    },
+    {
+      "path": "src/model/bilinear.py",
+      "file": "src__model__bilinear.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/bilinear.py",
+      "sha256": "cdf629e4afa94bb047bfef6f51f4727a91e45092fd4acb8bf071f7bbef9d50d0"
+    },
+    {
+      "path": "src/model/featup.py",
+      "file": "src__model__featup.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/featup.py",
+      "sha256": "e4d5e68c2be9ab72d508d2bc85332aaa2d98c9b3686e17674f76604a80788811"
+    },
+    {
+      "path": "src/model/ircnn.py",
+      "file": "src__model__ircnn.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/ircnn.py",
+      "sha256": "df0ed176f7cd22798f1003c2a04cc659685bbfc8b647a9eec875e4b5f6c2453c"
+    },
+    {
+      "path": "src/model/jafar.py",
+      "file": "src__model__jafar.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/jafar.py",
+      "sha256": "57cbe8b2649520bb4bbb70df53d8d20d6a29330070da39cdb8a1d94dbe6dadbb"
+    },
+    {
+      "path": "src/model/jbf.py",
+      "file": "src__model__jbf.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/jbf.py",
+      "sha256": "a93523c44e17d9cb74aa04bd1ed985128154fea44bc9fee8c2ad843636eb1dff"
+    },
+    {
+      "path": "src/model/jbu.py",
+      "file": "src__model__jbu.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/jbu.py",
+      "sha256": "68777366d3082a33299b3a9ccade08d700f0807c408a7582910575d55dc595a3"
+    },
+    {
+      "path": "src/model/naf.py",
+      "file": "src__model__naf.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/naf.py",
+      "sha256": "64e32ef854b06f909302e8e2bdccdac564094cf5674e2d27b17c5962f670458c"
+    },
+    {
+      "path": "src/model/nearest.py",
+      "file": "src__model__nearest.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/nearest.py",
+      "sha256": "3cb8d8cd91fae76591baee436beec8f51d9837b6d413092f271f869c864cc217"
+    },
+    {
+      "path": "src/model/rednet.py",
+      "file": "src__model__rednet.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/rednet.py",
+      "sha256": "c4cb32c26b20034e97f747a55cb10f9f4d88a02437f273d21b8b9e76c6248f75"
+    },
+    {
+      "path": "src/model/restormer.py",
+      "file": "src__model__restormer.py",
+      "url": "https://raw.githubusercontent.com/valeoai/NAF/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/src/model/restormer.py",
+      "sha256": "2142f2c92074e9d11337eade8aed90bb2bc4f6a80268e8ba10896447a6f904dc"
+    }
+  ],
+  "notes": "layers/rope.py n'est PAS une copie de ce depot. Le fichier amont de meme nom venait de Meta Platforms et portait l'accord de licence DINOv3, qui n'est pas une licence libre. Il a ete reecrit pour LocalMesh Engine a partir des mathematiques publiees de RoFormer (Su et al., 2021, arXiv:2104.09864), et est distribue sous Apache-2.0 comme le reste du depot. La reecriture rend des valeurs identiques au bit pres et charge les memes points de controle."
+}

@@ -1,0 +1,97 @@
+# LocalMesh Engine, packaging.
+#
+# Ce fichier vit DANS le paquet parce que le paquet est ce qui est publie ;
+# l'assembleur du depot public le remonte a la racine, a cote du dossier
+# `localmesh_engine/`. Cote prive, l'application importe le paquet depuis son
+# arborescence et ne passe jamais par pip.
+#
+# LES EPINGLES SONT MESUREES, PAS DEVINEES. Les trois extensions CUDA
+# (cumesh, o_voxel, flex_gemm) sont compilees contre un ABI torch precis :
+# changer de torch les casse, et l'erreur est une DLL introuvable, pas un
+# message lisible. torch et torchvision sont donc epingles exactement.
+# `transformers` est borne parce que `patches.py` s'appuie sur ses organes
+# internes (`model.embeddings`, `model.rope_embeddings`), qui bougent d'une
+# majeure a l'autre.
+#
+# Les trois extensions CUDA ne sont PAS listees ici : elles ne sont pas sur
+# PyPI, et `pip install cumesh` installerait un AUTRE projet du meme nom.
+# Voir docs/INSTALL.md.
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "localmesh-engine"
+version = "1.0.0"
+description = "Photographs to a textured mesh, on one NVIDIA card, offline. Built on TRELLIS.2, with a four view path."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Quentin Colus" }]
+keywords = ["3d", "image-to-3d", "mesh", "gltf", "trellis", "photogrammetry", "multi-view"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: GPU :: NVIDIA CUDA :: 12",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
+
+dependencies = [
+  # le socle, epingle : les extensions CUDA sont compilees contre lui
+  "torch==2.8.0",
+  "torchvision==0.23.0",
+  # les traits de l'image et le detourage
+  "transformers>=5.0,<6",
+  "huggingface_hub>=1.0",
+  "safetensors>=0.5",
+  "einops>=0.8",
+  # la geometrie et les images
+  "numpy>=2.0",
+  "trimesh>=4.5",
+  "Pillow>=11",
+  "opencv-python-headless>=4.10",
+  "scipy>=1.14",
+  "scikit-image>=0.24",
+  "utils3d @ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
+  # le reste
+  "easydict>=1.13",
+  "tqdm>=4.66",
+  "nvidia-ml-py>=12",
+]
+
+[project.optional-dependencies]
+# LES QUATRE VUES. `natten` est une extension CUDA compilee : elle a des roues
+# officielles pour Linux, et se compile sous Windows. Sans elle, la voie a une
+# seule photo marche toujours.
+multiview = ["natten>=0.21"]
+
+[project.urls]
+Homepage = "https://github.com/Quentincls/localmesh-engine"
+Weights = "https://huggingface.co/Qtn-Cls/LocalMeshEngine"
+Application = "https://local-mesh.com"
+
+[project.scripts]
+localmesh-engine = "localmesh_engine.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["localmesh_engine*"]
+
+[tool.setuptools.package-data]
+localmesh_engine = [
+  "multivue/recette.json",
+  "multivue/champ/LICENSE",
+  "multivue/champ/PROVENANCE.json",
+  "_vendu_trellis2/LICENSE",
+  "_vendu_trellis2/LICENSE-Pixal3D",
+  "_vendu_trellis2/NOTICE-Pixal3D",
+  "_vendu_trellis2/PROVENANCE.md",
+  "_vendu_o_voxel/LICENSE",
+  "_vendu_o_voxel/PROVENANCE.md",
+  "banc/sujets/*.md",
+]

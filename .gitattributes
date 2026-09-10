@@ -1,0 +1,11 @@
+# Line endings are LF in this repository, on every platform. A CUDA extension
+# built on Linux and a checkout made on Windows should compare byte for byte.
+* text=auto eol=lf
+
+# Binary assets are never touched.
+*.png binary
+*.jpg binary
+*.gif binary
+*.webp binary
+*.safetensors binary
+*.glb binary

@@ -1,0 +1,289 @@
+LocalMesh Engine
+Copyright 2026 Quentin Colus
+
+This product includes software developed by Quentin Colus, licensed under the
+Apache License, Version 2.0 (see LICENSE).
+
+Built with DINOv3.
+
+--------------------------------------------------------------------------------
+Third-party code included in this repository
+--------------------------------------------------------------------------------
+
+All code sits under localmesh_engine/, the package folder, and every path in
+this file is relative to it.
+
+_vendu_trellis2/
+    TRELLIS.2 inference code, Microsoft Research.
+    https://github.com/microsoft/TRELLIS.2
+    MIT License, Copyright (c) Microsoft Corporation.
+    Full text in _vendu_trellis2/LICENSE.
+
+    THIS FOLDER HAS FOUR AUTHORS, NOT ONE. Of its 86 Python files, 81 come
+    from Microsoft, 3 from Tencent, 1 from the ComfyUI node named below, and 1
+    is ours. File by file origins are in _vendu_trellis2/PROVENANCE.md.
+
+    The copy did not come straight from Microsoft. It came from the ComfyUI
+    node visualbruno/ComfyUI-Trellis2, which carried it:
+    https://github.com/visualbruno/ComfyUI-Trellis2
+    MIT License, whose LICENSE file also reads Copyright (c) Microsoft
+    Corporation. TRELLIS.2 itself takes one image. The ported multi-view entry
+    points are that node's additions: run_multiview, the sample_*_multiview
+    functions, FlowEulerMultiViewSampler and its RK4, RK5 and Heun variants,
+    the DINO lock and the hole filling. So is trellis2/utils/camera.py.
+
+    Three files come from TencentARC/Pixal3D:
+    https://github.com/TencentARC/Pixal3D
+    MIT License, Copyright (c) 2026 Tencent.
+
+        trellis2/modules/attention/proj_attention.py
+        trellis2/modules/sparse/attention/proj_attention.py
+        trellis2/trainers/flow_matching/mixins/image_conditioned_proj.py
+
+    Tencent's licence text is in _vendu_trellis2/LICENSE-Pixal3D and their own
+    notice in _vendu_trellis2/NOTICE-Pixal3D.
+
+    One file is ours, trellis2/contexte.py, and is Apache-2.0. It replaces what
+    the ComfyUI package supplied, so that the library runs outside ComfyUI.
+
+_vendu_o_voxel/
+    o_voxel (O-Voxel), the PBR volume to UV bake of TRELLIS.2,
+    Jianfeng Xiang, Microsoft Research.
+    https://github.com/microsoft/TRELLIS.2
+    MIT License, Copyright (c) Microsoft Corporation.
+    Full text in _vendu_o_voxel/LICENSE, changes in its PROVENANCE.md.
+
+multivue/champ/
+    NAF (Neighborhood Attention Field). Chambon, Couairon, Zablocki, Boulch,
+    Thome, Cord. Valeo.ai, Sorbonne Universite, CNRS.
+    https://github.com/valeoai/NAF
+    Apache License 2.0. Revision 37f2dfc180f2de53d98bd601109c0da0dd6b0f43.
+    Full text in multivue/champ/LICENSE. multivue/champ/PROVENANCE.json lists
+    every file of that revision we read, with its upstream URL and its
+    SHA-256; six of them are kept here.
+
+Rewritten rather than copied
+    multivue/champ/layers/rope.py is ours and is Apache-2.0. The upstream file
+    of that name came from Meta Platforms and carried the DINOv3 License
+    Agreement, which is not a free licence. It was rewritten on 10 September
+    2026 from the published mathematics of RoFormer (Su et al., 2021,
+    arXiv:2104.09864). Checked against the file it replaces on five tensor
+    shapes and two output layouts, it returns bit-identical values and loads
+    the same checkpoints. No code under the DINOv3 License Agreement remains in
+    this repository. Every licence in the list above is a free licence.
+
+Changes made to third-party files
+    In _vendu_trellis2/ and _vendu_o_voxel/, which are MIT, the files we
+    changed carry a comment saying what was changed, and each folder's
+    PROVENANCE file lists the changes.
+
+    multivue/champ/ is Apache-2.0, and section 4(b) of that licence asks
+    changed files to say so. Five of its files differ from revision 37f2dfc,
+    and this is that notice:
+
+        model/naf.py             imports made relative
+        layers/attentions.py     imports made relative
+        layers/__init__.py       import order changed
+        model/__init__.py        emptied
+        LICENSE                  appendix placeholder filled in with
+                                 "Copyright 2025 valeo.ai"
+
+    layers/convolutions.py is unchanged. Its SHA-256 matches the one recorded
+    in PROVENANCE.json once its CRLF line endings are read as LF.
+
+--------------------------------------------------------------------------------
+Runtime dependencies
+--------------------------------------------------------------------------------
+
+Read from the actual imports of this package. Pinned versions are in
+pyproject.toml. Each keeps its own licence; none is redistributed here.
+
+    torch, torchvision       tensors, networks, and the real attention path
+    numpy                    the exchange format at every boundary
+    trimesh                  assembles and writes the glTF that ships
+    Pillow                   reads the photo, writes every produced image
+    transformers             carries the image encoder and the cutout network
+    huggingface_hub          fetches the cutout model when the cache is empty
+    safetensors              reads the weight files
+    opencv-python-headless   resizes, dilates, fills holes in the atlas
+    scipy                    morphology on masks, gutters on the baked maps
+    scikit-image             marching cubes for the structure preview
+    einops                   tensor reshapes in the vendored code
+    tqdm                     console progress during sampling and baking
+    easydict                 the return type of the flow samplers
+    nvidia-ml-py             reads what the card holds, past the allocator
+    utils3d                  imported by the vendored TRELLIS.2 tree; installed
+                             from git at a pinned revision, see pyproject.toml
+
+The four view path adds one, and the single photo path runs without it:
+
+    natten                   neighborhood attention, a compiled CUDA extension
+
+Measuring the shot angles adds two more. Neither is in pyproject.toml: both sit
+beside the weights, under models/multivue/cameras/, and multivue/cotes.py puts
+that folder on sys.path at call time so nothing lands in your environment. See
+docs/WEIGHTS.md.
+
+    depth_anything_3         reads the angles from the four photographs
+    omegaconf                reads that model's configuration
+
+Three CUDA extensions, and the engine cannot run without them:
+
+    o_voxel                  dual grid to mesh, and the PBR volume to UV bake
+    cumesh                   remeshing, decimation, and the BVH used when baking
+    flex_gemm                sparse convolution backend and 3D grid sampling
+
+    They come from TRELLIS.2 and are installed by its setup.sh, but only
+    one of the three lives in that repository. o_voxel is the o-voxel/
+    subfolder of https://github.com/microsoft/TRELLIS.2, MIT, Copyright (c)
+    Microsoft Corporation. cumesh is https://github.com/JeffreyXiang/CuMesh
+    and flex_gemm is https://github.com/JeffreyXiang/FlexGEMM, both MIT,
+    Copyright (c) 2025 Jianfeng Xiang. None of the three is on PyPI, and this
+    repository does not ship them. Build them against torch 2.8.0+cu128 and
+    Python 3.12. Be careful with one name: `pip install cumesh` succeeds and
+    installs a different project of the same name, by Congjie He, which is not
+    this one. Third-party Linux wheels exist at
+    https://huggingface.co/siraxe/TRELLIS.2-4B_cuda_12.8.r12.8_wheels
+    (cp312, linux_x86_64). They are not ours.
+
+xformers
+    This repository contains no xformers code and installs no xformers package.
+    The vendored model asks for xformers as its sparse attention backend.
+    sdpa_backend.py registers a stand-in module under that name and answers
+    with PyTorch's own scaled dot product attention. Where a real xformers is
+    already installed on the machine, the stand-in shadows the import and none
+    of its kernels is called.
+
+folder_paths and comfy.utils
+    The vendored tree came from a ComfyUI node and still imports these two
+    ComfyUI names. No ComfyUI code is included here. comfy_shim.py registers
+    two small modules under those names, a models directory and a progress
+    bar, both written for this project and Apache-2.0.
+
+Libraries this engine does not use, on purpose
+    nvdiffrast is under the NVIDIA Source Code License, research or evaluation
+    only. It is called nowhere: uvraster.py rasterizes in PyTorch instead, on
+    every path that used to reach for it, in the vendored code as much as in
+    ours. The o_voxel wheel still imports nvdiffrast at module level, so
+    leurre_nvdiffrast.py registers the two module names it asks for; the
+    objects inside them raise if anything ever calls them, and contain no
+    NVIDIA code.
+
+    pymeshlab (GPL-3.0) and meshlib (a non-commercial and education agreement,
+    AMV Consulting) are neither imported nor called. The meshlib decimation of
+    the vendored mesh class was deleted from this repository on 10 September
+    2026, not merely left unused.
+
+Two GPL-3.0 names left in the vendored tree
+    _vendu_trellis2/trellis2/pipelines/trellis2_image_to_3d.py names mmgp
+    (deepbeepmeep/mmgp) inside a try/except, and
+    _vendu_trellis2/trellis2/utils/mesh_utils.py imports plyfile
+    (dranjan/python-plyfile) at module level. Neither package is installed or
+    redistributed by this repository, and nothing in the package imports
+    mesh_utils. If you install either one, its own licence applies to what you
+    then distribute.
+
+--------------------------------------------------------------------------------
+What the engine downloads by itself
+--------------------------------------------------------------------------------
+
+One piece: BiRefNet_HR, the cutout model. matting.py loads it from transformers
+by its Hugging Face id, with trust_remote_code=True, at the first generation if
+the cache is empty. Remote code is executed at that moment. Every other weight
+set has to be placed by hand under <LOCALMESH_ROOT>/models/. The tree, file by
+file, is in docs/WEIGHTS.md.
+
+The vendored TRELLIS.2 tree can fetch two more, on the Pixal3D recipe alone,
+which the command line does not offer: MoGe-2 through snapshot_download
+(https://huggingface.co/Ruicheng/moge-2-vitl, MIT) and NAF through
+torch.hub.load("valeoai/NAF") (Apache License 2.0).
+
+--------------------------------------------------------------------------------
+Model weights
+--------------------------------------------------------------------------------
+
+No weights are stored in this git repository. The engine reads them from its
+runtime root, named by the LOCALMESH_ROOT environment variable, under
+<root>/models/; LUMENGEN_ROOT is read after it, for installations that predate
+the name. The sets we convert ourselves are published apart from the code, on
+Hugging Face:
+
+    https://huggingface.co/Qtn-Cls/LocalMeshEngine
+
+Each set keeps the licence of its author.
+
+TRELLIS.2-4B, FP8 conversion
+    https://huggingface.co/visualbruno/TRELLIS.2-4B-FP8
+    MIT License. Original model: Microsoft Research, MIT License.
+
+TRELLIS-image-large, sparse structure decoder
+    https://huggingface.co/microsoft/TRELLIS-image-large
+    MIT License, Microsoft.
+
+BiRefNet_HR, subject cutout
+    https://huggingface.co/ZhengPeng7/BiRefNet_HR
+    MIT License.
+
+    The stock TRELLIS.2 descriptor cuts the background with briaai/RMBG-2.0,
+    which is gated and non-commercial. This engine writes that one field into a
+    side-car configuration and uses BiRefNet_HR instead, which is the same
+    architecture under MIT. RMBG is never loaded.
+
+Pixal3D multi-view, the four view structure and shape cascade
+    https://github.com/TencentARC/Pixal3D
+    https://huggingface.co/TencentARC/Pixal3D
+    MIT License, Copyright (c) 2026 Tencent.
+
+    WE CONVERT THESE OURSELVES. The three files the four view path loads
+    are our FP8 conversions of the official BF16 weights:
+
+        structure_mv_fp8.safetensors
+        forme_512_mv_fp8.safetensors
+        forme_1024_mv_fp8.safetensors
+
+    They are not in this git repository. They are served from
+    https://huggingface.co/Qtn-Cls/LocalMeshEngine. Tencent's MIT text and
+    their notice travel with the code, in this repository, as
+    _vendu_trellis2/LICENSE-Pixal3D and _vendu_trellis2/NOTICE-Pixal3D. The
+    conversion is lossy and measured: weight RMSE 0.025 to 0.026 against the
+    source, projection probe 0.027.
+
+NAF (Neighborhood Attention Field), the field network of the four view path
+    https://github.com/valeoai/NAF
+    Apache License 2.0. Valeo.ai, Sorbonne Universite, CNRS.
+
+    champ.safetensors is the official checkpoint, used unmodified. It is served
+    from https://huggingface.co/Qtn-Cls/LocalMeshEngine. The Apache License 2.0
+    that covers it is in this repository, at multivue/champ/LICENSE.
+
+Depth Anything 3 (DA3-BASE), the shot angles
+    https://huggingface.co/depth-anything/DA3-BASE
+    Apache License 2.0, code and weights.
+
+    It reads two things from the four photographs: the azimuth each one was
+    taken from, and which side each profile shows. The measured azimuths then
+    drive the projection. When it is absent the engine falls back to the
+    nominal angles, 0, 90, 180 and 270 degrees, and says so in the result.
+
+    Its source tree and the three small pure-Python packages it needs
+    (omegaconf, addict, antlr4-python3-runtime) sit beside its weights, under
+    cameras/source/src and cameras/deps, rather than in the environment, so
+    installing this module cannot disturb an existing installation. They are
+    not redistributed here and keep their own licences.
+
+DINOv3 ViT-L/16, image encoder
+    https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m
+    DINOv3 License, Meta Platforms, Inc.
+    https://ai.meta.com/resources/models-and-libraries/dinov3-license/
+
+    THIS ONE HAS CONDITIONS, AND THEY ARE NOT OPTIONAL. Anyone redistributing
+    these weights must ship a copy of the agreement with them, require the
+    recipient to accept the same terms, and display "Built with DINOv3"
+    somewhere visible: a website, a user interface, an about page, or product
+    documentation. We do not redistribute them. The line is due all the same,
+    which is why it stands at the top of this file, and it stays due in any
+    application built on this engine.
+
+    Access to the weights is gated and granted by hand. A Hugging Face account,
+    a request, and a human review on Meta's side stand between you and the
+    files. Both paths of the engine need them.

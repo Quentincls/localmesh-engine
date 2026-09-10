@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Weights and outputs. Nothing heavy belongs in this repository: the weights
+# live on Hugging Face, the meshes are what you make with it.
+*.safetensors
+*.ckpt
+*.pth
+*.bin
+*.glb
+*.gltf
+*.ply
+*.obj
+models/
+out/
+output/
+runs/
+
+# Editors and systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

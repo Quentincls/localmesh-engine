@@ -1,0 +1,24 @@
+name: An idea
+description: Something the engine should do, or do better.
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is the generation path: a photograph, or four, into a
+        mesh. Splats, the image studio, quad retopology and the library belong
+        to the application and will not land here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What you want
+      description: The result you are after, not the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What it would change
+      description: >-
+        A measurement beats an opinion. If you have one subject where the
+        current behaviour is visibly wrong, say which and show it.

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: The application
+    url: https://local-mesh.com
+    about: LocalMesh, the studio built around this engine.
+  - name: The weights
+    url: https://huggingface.co/Qtn-Cls/LocalMeshEngine
+    about: The four view weights, on Hugging Face.
