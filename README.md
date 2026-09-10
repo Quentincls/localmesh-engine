@@ -216,6 +216,21 @@ the peak memory read from the card, and the notes the run produced.
 
 ---
 
+### Reproduce the samurai
+
+`examples/samurai/` carries the four photographs the banner and the gallery
+were made from. They were generated with ChatGPT Image, so they ship with the
+repository.
+
+```bash
+python -m localmesh_engine examples/samurai/front.png   --droite examples/samurai/right.png   --gauche examples/samurai/left.png   --dos examples/samurai/back.png   --palier standard --graine 101 --vers out/
+```
+
+On an RTX 4060 Laptop with 8 GB this takes 8 minutes and returns a mesh of
+about 148,000 faces, peaking at 5.9 GB of video memory. The roles matter: the
+engine measures the angles it was given, but `front` has to be the photograph
+that carries the shape.
+
 ## Quality tiers
 
 A tier is a contract, not a slider. Changing one of these values changes the
@@ -326,3 +341,7 @@ LocalMesh, the application built on this engine, is at
 [local-mesh.com](https://local-mesh.com): the same generation core with an
 interface, a library and a viewer, for people who would rather not install any
 of the above.
+
+<div align="center">
+  <img src="assets/localmesh-app.webp" alt="The LocalMesh board, covered in generated objects" width="100%">
+</div>
