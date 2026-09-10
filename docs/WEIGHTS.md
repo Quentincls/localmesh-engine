@@ -153,10 +153,16 @@ weights: see step 5 of [INSTALL.md](INSTALL.md).
 
 This one reads the shooting angle of each photograph and decides which side each
 profile actually shows, rather than trusting the slot it was dropped into.
-Assembled by hand: weights, config, the upstream source tree, and three pure
-Python packages placed beside it rather than in your environment.
+**It came down with the four view weights, and there is nothing to do.** The
+`hf download Qtn-Cls/LocalMeshEngine` above carries `cameras/` whole: the
+weights, the config, the upstream source tree and the three pure Python
+packages it needs, 204 files, repackaged under the same Apache-2.0 as the
+original. They sit beside the weights rather than in your environment, so
+installing this engine cannot disturb another project.
 
-```
+If you would rather assemble it from the sources yourself, the pieces are:
+
+```bash
 hf download depth-anything/DA3-BASE model.safetensors config.json \
   --local-dir "$LOCALMESH_ROOT/models/multivue/cameras"
 
@@ -166,6 +172,9 @@ git clone https://github.com/ByteDance-Seed/depth-anything-3 \
 pip install --target "$LOCALMESH_ROOT/models/multivue/cameras/deps" \
   omegaconf==2.3.0 addict==2.4.0 antlr4-python3-runtime==4.9.3
 ```
+
+Do this on an empty `cameras/`: `git clone` refuses a folder that already
+holds files.
 
 `multivue/cotes.py` adds `cameras/source/src` and `cameras/deps` to `sys.path` at
 call time, which is why nothing lands in your environment, and `manquants()`

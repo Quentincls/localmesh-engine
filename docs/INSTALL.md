@@ -141,13 +141,31 @@ satisfies.
 
 ## 5. natten, for the four views only
 
-```
-pip install "natten>=0.21"
+```bash
+pip install --no-build-isolation "natten>=0.21"
 ```
 
-Or `pip install -e ".[multiview]"`, which is the same thing. natten is another
-compiled CUDA extension, with official Linux wheels; on Windows it builds.
-Reference version on the machine above: 0.21.6.
+`--no-build-isolation` is not optional here. natten is a compiled CUDA
+extension, and it compiles against whatever torch it finds. With build
+isolation, pip creates a clean environment, pulls its own torch into it, and
+builds against that one. On Linux you get a wheel linked to the wrong ABI; on
+Windows the CUDA half of the build is skipped, the install SUCCEEDS, and the
+neighborhood attention silently falls back to its CPU path. The four view path
+then runs, slowly, without ever saying what happened.
+
+Check what you got before going further:
+
+```bash
+python -c "import natten; print(natten.has_cuda())"
+```
+
+`True` or the four view path is not usable. If it prints `False`, uninstall,
+make sure `torch==2.8.0+cu128` is the one in the environment, and build again
+with `--no-build-isolation`.
+
+`pip install -e ".[multiview]"` declares the same dependency but goes through
+pip's resolver, so prefer the line above. Reference version on the machine
+above: 0.21.6.
 
 The single photo path runs without it. The four view path imports it while
 sampling, and the check that runs before a job does not look for it, so a
