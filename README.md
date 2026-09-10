@@ -118,8 +118,10 @@ number came from.
 <p align="center"><em>Six subjects, four photographs each, Detailed tier (<code>high</code>), RTX 4060 Laptop 8 GB.</em></p>
 
 <div align="center">
-  <img src="assets/turntable.gif" alt="Full turntable of the samurai" width="420">
+  <img src="assets/turntable.gif" alt="Four of the six meshes on a full turntable" width="560">
 </div>
+
+<p align="center"><em>A full turn each. One pose can be chosen; a full turn cannot.</em></p>
 
 ---
 
