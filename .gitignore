@@ -18,10 +18,16 @@ venv/
 *.gltf
 *.ply
 *.obj
-models/
-out/
-output/
-runs/
+# ANCREES A LA RACINE, ET C'EST LE CORRECTIF. Sans la barre oblique de tete,
+# `models/` visait N'IMPORTE QUEL dossier de ce nom a n'importe quelle
+# profondeur -- y compris `_vendu_trellis2/trellis2/models/`, ou vivent les
+# definitions des reseaux. Sept fichiers du moteur ont ete avales en silence,
+# et le depot ne demarrait chez personne. Les poids, eux, sont deja couverts
+# par les extensions ci-dessus et vivent de toute facon hors du depot.
+/models/
+/out/
+/output/
+/runs/
 
 # Editors and systems
 .idea/
