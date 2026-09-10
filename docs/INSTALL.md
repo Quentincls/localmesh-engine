@@ -139,6 +139,14 @@ That installs the runtime dependencies and the `localmesh-engine` command. Your
 torch stays as it is: the pin reads `torch==2.8.0`, which `2.8.0+cu128` already
 satisfies.
 
+Four of those dependencies are there for reasons the imports do not show, and
+they were found by installing this repository into an empty environment rather
+than by reading it. `zstandard` is how `o_voxel` reads its compressed volumes.
+`triton` (`triton-windows` on Windows) carries the `grid_sample` kernels of
+`flex_gemm`. And `kornia` and `timm` are required by the BiRefNet code that is
+downloaded with its weights and executed under `trust_remote_code`: no static
+analysis of this repository could have named them.
+
 ## 5. natten, for the four views only
 
 ```bash

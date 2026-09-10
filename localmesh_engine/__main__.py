@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dos", type=Path, help="le dos du sujet")
     p.add_argument("--palier", default="standard",
                    choices=["draft", "standard", "high", "max"],
-                   help="la recette de qualité (voir RECETTES.md)")
+                   help="la recette de qualité (voir docs/RECIPES.md)")
     p.add_argument("--graine", type=int, default=-1,
                    help="la graine ; -1 en tire une au hasard")
     p.add_argument("--vers", type=Path, default=Path("."),

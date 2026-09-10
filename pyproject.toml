@@ -58,6 +58,13 @@ dependencies = [
   "scipy>=1.14",
   "scikit-image>=0.24",
   "utils3d @ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8",
+  # ce que les extensions CUDA et le detourage reclament, et qu'aucune
+  # lecture du code ne pouvait deviner
+  "zstandard>=0.22",                 # o_voxel lit ses volumes compresses avec
+  "triton>=3.0; sys_platform != 'win32'",
+  "triton-windows>=3.0; sys_platform == 'win32'",
+  "kornia>=0.7",                     # exiges par le code distant de
+  "timm>=1.0",                       # BiRefNet_HR, charge en trust_remote_code
   # le reste
   "easydict>=1.13",
   "tqdm>=4.66",
