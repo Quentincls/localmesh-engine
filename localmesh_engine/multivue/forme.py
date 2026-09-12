@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import gc
 import json
+import logging
+import os as _os
 from pathlib import Path
 
 from .cameras import nominal_queries
@@ -27,9 +29,47 @@ from .poids_meta import materialize_rotary_frequencies
 from .repere import decoded_to_local
 from .structure import ROLES, _role_projete
 
-#: Le plafond de cellules de la passe fine. C'est le garde-fou de mémoire de
-#: la carte : au-delà, la passe ne tient pas sur 8 Go.
-PLAFOND_CELLULES = 24000
+log = logging.getLogger(__name__)
+
+#: Le plafond de cellules de la passe fine, PAR GIGAOCTET DE CARTE.
+#:
+#: C'était 24 000, écrit en dur, sous un commentaire qui disait la vérité de
+#: son époque : « au-delà, la passe ne tient pas sur 8 Go ». Tant que
+#: l'installation refusait les cartes plus petites, ce nombre était juste pour
+#: tout le monde, puisque tout le monde avait au moins 8 Go.
+#:
+#: Depuis la 3.5.1, une carte de 6 Go entre. Et ce plafond ne regardait JAMAIS
+#: la carte : il laissait passer sur 6 Go un sujet calibré pour 8. Les deux
+#: issues étaient mauvaises, et aucune n'était un refus propre — la mémoire
+#: partagée de Windows et ses lenteurs mesurées dans ce dépôt, ou un
+#: dépassement de mémoire après plusieurs minutes de travail déjà fait.
+#:
+#: 3 000 cellules par gigaoctet rendent exactement 24 000 sur la carte de
+#: référence, celle où la mesure a été faite. Rien ne change donc pour une
+#: carte de 8 Go. `_plafond_de_faces` applique la même règle aux faces depuis
+#: le début : on ne fait ici que la rendre à la passe fine.
+CELLULES_PAR_GO = 3000
+
+#: Sous ce plancher, le plafond ne protège plus rien et ne fait qu'interdire.
+#: Une carte de 4 Go ne fera pas de multi-vue fin, mais elle le saura tout de
+#: suite plutôt qu'après dix minutes.
+PLAFOND_CELLULES_MINI = 8000
+
+
+def plafond_cellules() -> int:
+    """Combien de cellules cette carte-ci peut porter."""
+    regle = _os.environ.get("LUMENGEN_PLAFOND_CELLULES")
+    if regle:
+        try:
+            return int(regle)
+        except ValueError:
+            pass
+    try:
+        from .. import config as _config
+        go = float(_config.gpu_report().total_vram_gb)
+    except Exception:                                         # noqa: BLE001
+        go = 8.0
+    return max(PLAFOND_CELLULES_MINI, int(CELLULES_PAR_GO * go))
 
 #: LES PAS SUIVENT LE PALIER, comme sur la voie a une photo.
 #:
@@ -49,7 +89,6 @@ PLAFOND_CELLULES = 24000
 #: RIEN change au banc a verite terrain du 9 septembre (moyenne 4,172 contre
 #: 4,171 sur sept sujets). Monter les pas n'achete donc pas de fidelite ; ce
 #: qu'on corrige ici est une INCOHERENCE d'etiquette, pas un defaut de forme.
-import os as _os
 PAS = int(_os.environ.get("LUMENGEN_MV_PAS", "6"))
 
 
@@ -213,11 +252,26 @@ def maillage(config, traits_par_taille: dict, cellules, poids, graine: int,
                 coords = torch.cat(
                     (surface[:, :1], ((surface[:, 1:] + .5) / 512 * 63).round().int()),
                     1).unique(dim=0).contiguous()
-                if len(coords) > PLAFOND_CELLULES:
+                plafond = plafond_cellules()
+                if len(coords) > plafond:
+                    # LE REFUS DIT CE QU'IL FAUT POUR S'EN SORTIR. L'ancienne
+                    # phrase conseillait « un palier plus léger » — un conseil
+                    # sans issue à Brouillon, qui est déjà le plus léger. Le
+                    # vrai levier est le nombre de photos : la voie à une
+                    # photo n'a pas cette passe et passe toujours.
+                    # LE CHIFFRE AU JOURNAL, LA PHRASE A L'ECRAN.
+                    # « 24 000 cellules » ne veut rien dire pour la personne
+                    # qui lit, et « cellule » n'apparait nulle part ailleurs
+                    # dans le produit. La phrase reste donc SANS CHIFFRE,
+                    # ce qui la rend traduisible, et dit ce qu'il y a a
+                    # faire ; la mesure, elle, va la ou on la cherchera.
+                    log.warning("passe fine refusee : %d cellules pour un "
+                                "plafond de %d sur cette carte",
+                                len(coords), plafond)
                     raise RuntimeError(
-                        "The fine pass would need %d cells, over the %d ceiling. "
-                        "Nothing is silently downgraded: try one photo, or a "
-                        "lighter tier." % (len(coords), PLAFOND_CELLULES))
+                        "This subject is too detailed for this card with "
+                        "four photographs. Use a single photograph for it, "
+                        "or a card with more video memory.")
                 del surface
             else:
                 maillages = decodeur(latent, useTiled=True)

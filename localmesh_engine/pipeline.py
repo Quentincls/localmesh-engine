@@ -449,6 +449,46 @@ def _multivue_porte(nb_vues: int, settings, geo_vues: dict | None = None) -> boo
         return False
 
 
+def _pourquoi_pas_le_chemin_porte(nb_vues: int, settings) -> str | None:
+    """Pourquoi le chemin a quatre vues n'a pas pris ce travail.
+
+    Rend une NOTE a poser sur le rendu, ou None quand il n'y a rien a dire.
+    La porte au-dessus rend un booleen et garde son contrat ; celle-ci
+    rejoue la meme suite de tests, dans le meme ordre, pour nommer celui qui
+    a ferme.
+
+    Deux cas se disent, et un troisieme non :
+      - les poids ne sont pas la : c'est un manque, et le resultat en pâtit ;
+      - le palier promet une grille que ce chemin ne sait pas rendre ;
+      - moins de trois cotes : ce n'est pas un repli, c'est le seul chemin
+        qui sache faire quelque chose de deux photos. La note compte deja
+        les vues.
+    """
+    if nb_vues != 3:
+        return None
+    if (os.environ.get("LUMENGEN_SANS_MULTIVUE_PORTE")
+            or os.environ.get("LUMENGEN_MV_ANCIEN") == "1"
+            or getattr(settings, "chemin_mv", "auto") == "ancien"):
+        return None                      # interrupteurs de banc, pas du produit
+    if (config.recette(settings.detail).pipeline_type.startswith("1536")
+            and os.environ.get("LUMENGEN_MV_TOUS_PALIERS") != "1"):
+        return ("Ce palier ne passe pas par le chemin a quatre vues : ses "
+                "modeles s'arretent a 1024, et ce palier promet plus. Les "
+                "quatre photos ont servi par l'ancien melangeur.")
+    try:
+        from .multivue import Poids
+        if not Poids.depuis(config.MODELS_ROOT).pretes():
+            return ("Le chemin a quatre vues n'a pas servi : ses modeles ne "
+                    "sont pas encore sur cette machine. Les quatre photos ont "
+                    "servi par l'ancien melangeur, qui melange des predictions "
+                    "entieres au lieu de fondre les vues.")
+    except Exception:                                         # noqa: BLE001
+        return ("Le chemin a quatre vues n'a pas servi : ses modeles ne sont "
+                "pas lisibles sur cette machine. Les quatre photos ont servi "
+                "par l'ancien melangeur.")
+    return None
+
+
 #: Le vocabulaire de l'application vers celui des modeles, en UN endroit.
 _NOM_DU_ROLE = {"droite": "right", "gauche": "left", "dos": "back"}
 
@@ -1131,6 +1171,14 @@ class Engine:
                 # seul nombre à capturer ; la liste des côtés va au journal.
                 log.info("multi-vue : face + %s", ", ".join(vues_pil))
                 notes.append("Généré depuis %d vues." % (1 + len(vues_pil)))
+                # ON DIT POURQUOI ON N'EST PAS SUR L'AUTRE CHEMIN. Les deux
+                # routes ecrivaient la meme note, mot pour mot : personne ne
+                # pouvait savoir que la fonction vedette de la 3.5 n'avait
+                # pas servi.
+                _raison = _pourquoi_pas_le_chemin_porte(len(vues_pil), settings)
+                if _raison:
+                    log.warning("chemin porte ecarte : %s", _raison)
+                    notes.append(_raison)
                 meshes = pipe.run_multiview(
                     front=image,
                     generate_texture_slat=False,
