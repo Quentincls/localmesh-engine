@@ -13,6 +13,7 @@ a textured `.glb` file on a single NVIDIA card with 8 GB of memory, with no
 generation service in the loop.
 
 **[Install guide](docs/INSTALL.md)** &nbsp;&middot;&nbsp;
+**[Changelog](CHANGELOG.md)** &nbsp;&middot;&nbsp;
 **[Weights on Hugging Face](https://huggingface.co/Qtn-Cls/LocalMeshEngine)** &nbsp;&middot;&nbsp;
 **[Project page](https://local-mesh.com/localmesh-engine/)** &nbsp;&middot;&nbsp;
 **[LocalMesh, the application](https://local-mesh.com)**

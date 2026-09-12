@@ -430,7 +430,11 @@ class Recette:
 #: contourage dual demande, puisqu'il decide du dedans et du dehors. C'est la
 #: valeur du banc. CE QU'ELLE REFERME REELLEMENT N'A JAMAIS ETE OBSERVE — une
 #: bouche, une anse, un tube sont des candidats.
-BOUCHAGE_PERIMETRE = 1.0
+#:
+#: MOLETTE DE BANC : `LUMENGEN_BOUCHAGE_PERIMETRE`. Le produit ne la pose
+#: jamais ; elle existe pour comparer deux reglages sur le MEME sujet et la
+#: MEME graine, seule facon de trancher.
+BOUCHAGE_PERIMETRE = float(os.environ.get("LUMENGEN_BOUCHAGE_PERIMETRE", 1.0))
 
 #: JUSQU'OU LE SECOND BOUCHAGE VA, ET POURQUOI 4,0 NE SUFFISAIT PAS.
 #:
@@ -453,7 +457,62 @@ BOUCHAGE_PERIMETRE = 1.0
 #: apres, verifiee a l'image. Ce que ca change est invisible dans notre
 #: visionneuse — elle force la double face — et tres visible chez le client,
 #: qui ouvre le fichier dans un moteur qui, lui, ecarte les faces arriere.
-FERMETURE_PERIMETRE = 12.0
+#:
+#: CE QUE CETTE VALEUR N'A JAMAIS ETE MESUREE POUR, et qu'il faut savoir
+#: avant d'y toucher. Le 9 septembre 2026, elle est passee de 4 a 12 sur deux
+#: temoins : la SILHOUETTE (identique avant/apres) et le COMPTE DE BORDS
+#: OUVERTS (953 -> 0). Aucun des deux ne peut voir le defaut trouve le
+#: 11 septembre : une lame couchee le long de la surface ne change pas la
+#: silhouette, et boucher fait TOUJOURS baisser le compte de bords — c'est la
+#: mesure qui applaudit le geste qu'elle devrait juger.
+#:
+#: MESURE DU 11 SEPTEMBRE, sur quatre objets de la bibliotheque de Quentin.
+#: On appelle « lame » un triangle dont la plus longue arete depasse 5 % de
+#: la diagonale de l'objet ET dont l'allongement depasse 8 :
+#:
+#:     AngelNo          29 aout      380 lames    2,9 % de l'aire
+#:     image-Enneige     4 sept.   1 119 lames   10,5 %
+#:     Objet1-image      4 sept.     975 lames    9,5 %
+#:     ChatGPT 13_08    11 sept.   1 137 lames   17,3 %
+#:
+#: Moins d'un demi pour cent des triangles portent pres d'un cinquieme de la
+#: surface visible. Le defaut PRECEDE le passage a 12 — il etait deja a 10 %
+#: le 4 septembre — donc ce seuil est un suspect, pas un coupable : les
+#: sujets different et rien n'est controle. Le banc qui trancherait : meme
+#: sujet, meme graine, bouchage a 12 / 4 / 1 / eteint, et LES DEUX mesures
+#: cote a cote, les lames ET les bords ouverts.
+#:
+#: MOLETTE DE BANC : `LUMENGEN_FERMETURE_PERIMETRE`.
+#: MESURE DU 11 SEPTEMBRE, DIX SUJETS, et c'est elle qui fixe ce 1.0.
+#: Le banc (`engine/tools/banc_fermeture*.py`) depose le maillage juste avant
+#: la fermeture et essaie les seuils sur cette entree fixe :
+#:
+#:     seuil 12 (l'ancien)   2 613 lames au total, +14 a +67 % de matiere
+#:     seuil  1                516 lames,          +4 a +16 %
+#:     et les trous ainsi laisses ouverts NE SE VOIENT PAS : mediane 0,000 %
+#:     des pixels de l'objet sur huit angles, pire cas 0,027 %.
+#:
+#: C'est une falaise et non une pente : entre 2 et 8 rien ne change, aucune
+#: boucle n'a ce perimetre. Puis a 12 les boucles geantes passent — jusqu'a
+#: 58 % de l'envergure de l'objet — et la fermeture tend une toile en travers.
+FERMETURE_PERIMETRE = float(os.environ.get("LUMENGEN_FERMETURE_PERIMETRE", 1.0))
+
+#: RETIRER LES LAMES QUE LE BOUCHAGE LAISSE, et c'est la seconde moitie du
+#: remede. Baisser le seuil ecarte les boucles geantes ; il reste des boucles
+#: MOYENNES qu'un eventail ferme par un triangle qui traverse l'objet. Sur
+#: l'ange, dont aucune boucle ne depasse 19 % d'envergure, le seuil ne change
+#: rien du tout : ses 536 lames viennent de la.
+#:
+#: On juge donc le triangle plutot que la boucle. Est une lame un triangle
+#: dont la plus longue arete depasse `LAME_PART` de la diagonale de l'objet
+#: ET dont l'allongement depasse `LAME_ALLONGEMENT`. Un maillage sain sorti
+#: du contourage dual n'en contient AUCUNE — verifie sur les dix sujets.
+#:
+#: Resultat mesure : 2 613 lames -> 0 sur les dix, matiere inventee ramenee
+#: de +14/+67 % a +1,7/+11,8 %, et toujours aucun trou visible.
+RETRAIT_LAMES = os.environ.get("LUMENGEN_RETRAIT_LAMES", "1") != "0"
+LAME_PART = float(os.environ.get("LUMENGEN_LAME_PART", 0.05))
+LAME_ALLONGEMENT = float(os.environ.get("LUMENGEN_LAME_ALLONGEMENT", 8.0))
 
 #: CE QUE LE FILTRE A DEBRIS REGARDE, ET POURQUOI IL LUI FAUT DEUX CRITERES.
 #:

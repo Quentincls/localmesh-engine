@@ -33,6 +33,8 @@ import logging
 import numpy as np
 import torch
 
+from . import config
+
 log = logging.getLogger("localmesh_engine.remaillage")
 
 #: QUAND LE CONTOURAGE DUAL DOIT DESCENDRE A 512.
@@ -268,6 +270,61 @@ def _retirer_debris(v, f, *, ratio_aire: float, distance_mini: float,
     return v2, f2.int()
 
 
+def _deposer_banc(etiquette: str, v, fc) -> None:
+    """Deposer un maillage intermediaire, pour le banc SEULEMENT.
+
+    `LUMENGEN_BANC_DEPOT` nomme un dossier. Sans elle, cette fonction sort
+    au premier test et ne coute rien. Le produit ne la pose jamais.
+    """
+    import os
+    dossier = os.environ.get("LUMENGEN_BANC_DEPOT")
+    if not dossier:
+        return
+    try:
+        import numpy as np
+        os.makedirs(dossier, exist_ok=True)
+        chemin = os.path.join(dossier, etiquette + ".npz")
+        np.savez_compressed(chemin,
+                            sommets=v.detach().cpu().numpy(),
+                            faces=fc.detach().cpu().numpy())
+        log.info("banc : %s depose (%d faces)", etiquette, int(fc.shape[0]))
+    except Exception as exc:                                  # noqa: BLE001
+        log.warning("banc : depot %s impossible (%s)", etiquette, exc)
+    if os.environ.get("LUMENGEN_BANC_ARRET") == etiquette:
+        raise SystemExit("banc : arret demande apres %s" % etiquette)
+
+
+def _retirer_lames(v, fc):
+    """Les triangles trop longs et trop effiles s'en vont.
+
+    Ce que mesure la regle, et pourquoi elle tient en deux nombres : la plus
+    longue arete rapportee a la DIAGONALE DE L'OBJET (un triangle sain sorti
+    du contourage dual ne traverse jamais 5 % de l'objet), et l'allongement,
+    plus longue arete sur plus courte (un triangle sain tourne autour de 2).
+    Il faut les deux : un grand triangle bien proportionne est legitime, un
+    petit triangle effile est du bruit sans consequence.
+    """
+    import torch
+    boite = v.max(0).values - v.min(0).values
+    diag = float(torch.linalg.vector_norm(boite)) or 1.0
+    t = fc.long()
+    a, b, c = v[t[:, 0]], v[t[:, 1]], v[t[:, 2]]
+    aretes = torch.stack([
+        torch.linalg.vector_norm(b - a, dim=1),
+        torch.linalg.vector_norm(c - b, dim=1),
+        torch.linalg.vector_norm(a - c, dim=1)], 1)
+    longue = aretes.max(1).values
+    courte = aretes.min(1).values.clamp_min(1e-12)
+    lame = (longue > config.LAME_PART * diag) & (
+        longue / courte > config.LAME_ALLONGEMENT)
+    combien = int(lame.sum())
+    if not combien:
+        return v, fc
+    log.info("retrait des lames : %d triangles sur %d",
+             combien, int(fc.shape[0]))
+    return v, fc[~lame].contiguous()
+
+
 def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
              perimetre_bouchage: float = 1.0,
              perimetre_fermeture: float = 4.0,
@@ -442,6 +499,7 @@ def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
             jalon("closing cavities", 0.63)
         v = mesh.vertices.detach().contiguous().cuda()
         fc = mesh.faces.detach().int().contiguous().cuda()
+        _deposer_banc("avant-fermeture", v, fc)
         for _ in range(2):
             cm = cumesh.CuMesh()
             cm.init(v.contiguous(), fc.contiguous())
@@ -450,6 +508,21 @@ def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
             v, fc = cm.read()
             del cm
         purger()
+        # RETIRER CE QUE LE BOUCHAGE A LAISSE DE MAUVAIS.
+        #
+        # Un eventail qui ferme une boucle moyenne produit parfois un
+        # triangle qui TRAVERSE l'objet : tres long, tres effile. Il ne
+        # repare rien, il pose une lame en travers de la surface — c'est ce
+        # que Quentin a vu le 11 septembre, et c'est mesurable (0,46 % des
+        # triangles portaient 17 % de la surface visible).
+        #
+        # On juge donc le triangle, pas la boucle qui l'a produit. Les dix
+        # sujets du banc passent de 2 613 lames a ZERO, et les bouts laisses
+        # ouverts ne se voient pas : mediane 0,000 % des pixels de l'objet
+        # sur huit angles, pire cas 0,027 %.
+        if config.RETRAIT_LAMES and fc.shape[0]:
+            v, fc = _retirer_lames(v, fc)
+        _deposer_banc("apres-fermeture", v, fc)
         mesh.vertices = v.to(mesh.device)
         mesh.faces = fc.int().to(mesh.device)
 
