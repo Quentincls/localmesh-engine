@@ -1658,9 +1658,15 @@ class Engine:
             with vrammetre.Metre() as metre:
                 if vues:
                     # La texture regarde les MEMES vues que la forme :
-                    # `texture_mesh_multiview` pondere chaque texel par
-                    # l'angle entre sa normale et chaque camera. Un dos
-                    # observe n'est plus invente.
+                    # `texture_mesh_multiview` pondere chaque texel par la
+                    # POSITION de sa cellule. Un dos observe n'est plus
+                    # invente.
+                    #
+                    # CE COMMENTAIRE DISAIT « par l'angle entre sa normale et
+                    # chaque camera », comme celui de `remaillage.texturer_
+                    # multivue`. C'est faux : aucune normale n'est lue.
+                    # Corrige le 22 septembre 2026 apres qu'il ait envoye une
+                    # enquete sur une fausse piste pendant une demi-journee.
                     glb, _base, _mr = remaillage.texturer_multivue(
                         pipe, tm, image, vues, seed=seed,
                         resolution=r.tex_resolution,

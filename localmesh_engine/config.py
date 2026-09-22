@@ -634,8 +634,18 @@ PALIERS: dict[str, Recette] = {
         pipeline_type="1536_cascade", steps_structure=16, steps_shape=16,
         steps_texture=16, sampler="euler", texture_size=8192, faces=400_000,
         tex_guidance=5.0, vram_min_gb=24.0),
-    #: Pixal3D : un autre modele, qui reprojette les pixels de la photo au
-    #: lieu de regenerer la surface. Ses poids (24 Go) ne sont telecharges par
+    #: Pixal3D : un autre modele. Sa texture est GENEREE, comme la notre.
+    #:
+    #: CE COMMENTAIRE A DIT « reprojette les pixels de la photo au lieu de
+    #: regenerer la surface », ET C'ETAIT FAUX. Verifie le 22 septembre 2026
+    #: par trois lectures de code independantes : `run_pixal3d` appelle
+    #: `sample_tex_slat` puis `decode_latent`, exactement comme le chemin
+    #: normal. Ce que Pixal3D appelle « projection » echantillonne des TRAITS
+    #: DINOv3 par voxel pour conditionner le debruiteur — jamais des pixels.
+    #: Il sait dire « il y a de l'ecriture ici », jamais « ces lettres-la ».
+    #: La phrase laissait croire qu'un texte imprime redeviendrait exact en
+    #: rallumant ce palier : c'est faux, et elle a failli couter 24 Go de
+    #: telechargement pour rien. Ses poids (24 Go) ne sont telecharges par
     #: aucun chemin du produit — ce palier n'est atteignable depuis aucune
     #: interface et n'est garde que pour ne pas perdre le branchement.
     "extreme": Recette(

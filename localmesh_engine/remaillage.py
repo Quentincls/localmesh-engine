@@ -673,9 +673,19 @@ def texturer_multivue(pipe, tm, face, vues, *, seed: int, resolution: int,
     """Comme `texturer`, mais chaque côté observé guide ses texels.
 
     `vues` : {"droite"|"gauche"|"dos": PIL}, déjà détourées par `matting`
-    comme la face. `texture_mesh_multiview` pondère chaque texel par
-    l'angle entre sa normale et chaque caméra (`blend_temperature`) : un
-    dos observé n'est plus inventé par l'inpainting.
+    comme la face. `texture_mesh_multiview` pondère chaque texel par la
+    POSITION de sa cellule, pas par sa normale : un dos observé n'est plus
+    inventé par l'inpainting.
+
+    CETTE DOCSTRING A DIT « l'angle entre sa normale et chaque caméra »
+    PENDANT UN MOIS, ET C'ÉTAIT FAUX. `_scores_des_vues` (flow_euler.py)
+    note chaque vue sur une rampe linéaire de la position de la cellule —
+    aucune normale n'est lue nulle part. La phrase a coûté une demi-journée
+    d'enquête le 22 septembre 2026, parce qu'un vote par normale aurait été
+    JUSTE là où le vote par position est faux : sur un sujet plat, l'axe
+    avant/arrière n'occupe qu'une fraction de la grille (12,2 % mesurés sur
+    une cassette), donc son score est écrasé et ce sont les photos de PROFIL
+    qui gagnent le vote sur la grande face.
 
     TOUT CE QUI EST COMMENTÉ DANS `texturer` VAUT ICI À L'IDENTIQUE :
     OPAQUE, simple face, euler, telea, normales recalculées (False), et
