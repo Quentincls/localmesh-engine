@@ -577,7 +577,8 @@ _RESCALE_T = 3.0
 
 
 def texturer(pipe, tm, image, *, seed: int, resolution: int,
-             texture_size: int, steps: int, guidance: float, jalon=None):
+             texture_size: int, steps: int, guidance: float, jalon=None,
+             cond_resolution: int | None = None):
     """Rend (trimesh texturé, baseColor PIL RGBA, metallicRoughness PIL RGB)."""
     originaux = _brancher_jalons(pipe, jalon)
     try:
@@ -596,6 +597,11 @@ def texturer(pipe, tm, image, *, seed: int, resolution: int,
             # Indépendant du `pipeline_type` de la forme : c'est ce que
             # `run()` seul interdisait, et ce que le banc faisait.
             resolution=resolution,
+            # LA FINESSE DU CONDITIONNEMENT, DÉTACHÉE DE LA GRILLE DE FORME.
+            # `resolution` choisit le DiT de texture ; celle-ci décide
+            # combien de jetons DINOv3 décrivent la photo. None rend le
+            # comportement d'avant, au bit près. Voir `pipeline._cond_texture`.
+            cond_resolution=cond_resolution,
             texture_size=texture_size,       # côté de l'atlas
             texture_alpha_mode="OPAQUE",
             # ACCEPTÉ ET IGNORÉ : `postprocess_mesh` code `doubleSided=True`
@@ -662,7 +668,8 @@ def texturer(pipe, tm, image, *, seed: int, resolution: int,
 
 def texturer_multivue(pipe, tm, face, vues, *, seed: int, resolution: int,
                       texture_size: int, steps: int, guidance: float,
-                      jalon=None):
+                      jalon=None, cond_resolution: int | None = None,
+                      melange: float | None = None):
     """Comme `texturer`, mais chaque côté observé guide ses texels.
 
     `vues` : {"droite"|"gauche"|"dos": PIL}, déjà détourées par `matting`
@@ -702,6 +709,24 @@ def texturer_multivue(pipe, tm, face, vues, *, seed: int, resolution: int,
                 "rescale_t": _RESCALE_T,
             },
             resolution=resolution,
+            # Voir la note du même argument dans `texturer` : une divergence
+            # entre les deux fonctions serait un bogue, pas un réglage.
+            cond_resolution=cond_resolution,
+            # COMBIEN LA VUE QUI REGARDE UN TEXEL PESE CONTRE LES TROIS AUTRES.
+            #
+            # Jamais passe jusqu'au 22 septembre 2026 : la valeur servie etait
+            # donc le defaut du noeud ComfyUI, 2.0, ou un texel PLEINE FACE
+            # recoit 77,6 % de la vue de face et 22,4 % de trois vues qui ne
+            # voient pas cette face. Sur une forme le melange est benin ; sur
+            # un glyphe c'est un passe-bas, et c'est ce qui l'efface.
+            #
+            # MESURE DU 22 SEPTEMBRE 2026, cassette a texte, graine 42,
+            # palier Standard : la MEME photo de face en mono sort avec 30 %
+            # de detail fin en plus qu'en quatre vues (p99,9 : 50,7 contre
+            # 39,0), globe, ville et rayures conserves la ou le multivue les
+            # efface. Le multivue DEGRADE donc la face qu'il n'avait aucun
+            # besoin d'inventer.
+            blend_temperature=(2.0 if melange is None else melange),
             texture_size=texture_size,
             texture_alpha_mode="OPAQUE",
             double_side_material=False,

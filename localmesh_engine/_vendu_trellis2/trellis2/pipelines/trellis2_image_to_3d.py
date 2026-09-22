@@ -3194,6 +3194,7 @@ class Trellis2ImageTo3DPipeline(Pipeline):
         seed: int = 42,
         tex_slat_sampler_params: dict = {},
         resolution: int = 1024,
+        cond_resolution: Optional[int] = None,
         texture_size: int = 2048,
         texture_alpha_mode = 'OPAQUE',
         double_side_material = True,
@@ -3220,9 +3221,14 @@ class Trellis2ImageTo3DPipeline(Pipeline):
             images = [image]
         
         self.load_image_cond_model()        
-        cond_resolution = resolution
-        if cond_resolution>1024:
-            cond_resolution = 1024
+        # AJOUT LOCALMESH : voir la note de `texture_mesh_multiview`. Le
+        # plafond d'origine (`min(resolution, 1024)`) ne mordait QUE sur la
+        # grille 1536 ; sur les paliers standard et high il ne faisait rien,
+        # et le conditionnement restait a 1024 sans qu'aucun reglage puisse
+        # le changer. `cond_resolution` le rend adressable, et son absence
+        # rend exactement l'ancien calcul.
+        if cond_resolution is None:
+            cond_resolution = min(resolution, 1024)
             
         cond = self.get_cond(images, cond_resolution, max_views = max_views)
         
@@ -3291,6 +3297,7 @@ class Trellis2ImageTo3DPipeline(Pipeline):
         seed: int = 42,
         tex_slat_sampler_params: dict = {},
         resolution: int = 1024,
+        cond_resolution: Optional[int] = None,
         texture_size: int = 2048,
         texture_alpha_mode = 'OPAQUE',
         double_side_material = True,
@@ -3326,14 +3333,26 @@ class Trellis2ImageTo3DPipeline(Pipeline):
         
         self.load_image_cond_model()
         
-        if resolution == 512:
-             for v, img in views_dict.items():
-                c = self.get_cond([img], 512)
-                conds[v] = c
-        else:
-             for v, img in views_dict.items():
-                c = self.get_cond([img], 1024)
-                conds[v] = c
+        # AJOUT LOCALMESH : LA FINESSE DU CONDITIONNEMENT SE DETACHE DE LA
+        # GRILLE DE FORME.
+        #
+        # La resolution passee a `get_cond` etait ecrite en dur, 512 ou 1024
+        # selon `resolution`. Or `resolution` dit a quelle finesse le VOLUME
+        # est sculpte, tandis que cette valeur-ci decide combien de jetons
+        # DINOv3 decrivent la PHOTO : `get_cond` la pose telle quelle dans
+        # `image_cond_model.image_size`, et l'extracteur y redimensionne la
+        # vue de force. A 1024, un ViT/16 rend 64x64 = 4096 jetons pour toute
+        # l'image, quelle que soit la finesse demandee ailleurs.
+        #
+        # Rien en aval ne suppose cette longueur : DINOv3 place ses positions
+        # par RoPE (donc aucune table apprise a interpoler, le defaut de
+        # classe de l'extracteur est d'ailleurs 2048), et le DiT de texture
+        # empaquette son conditionnement en VarLenTensor.
+        #
+        # Non renseigne, le comportement d'hier au bit pres.
+        cond_r = cond_resolution or (512 if resolution == 512 else 1024)
+        for v, img in views_dict.items():
+            conds[v] = self.get_cond([img], cond_r)
         
         if not self.keep_models_loaded:
             self.unload_image_cond_model()

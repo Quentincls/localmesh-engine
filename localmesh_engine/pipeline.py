@@ -55,6 +55,86 @@ def _melange_multivue() -> float:
         except ValueError:
             log.warning("LUMENGEN_BANC_MELANGE illisible (%r), mélange %s", regle, MELANGE_MULTIVUE)
     return MELANGE_MULTIVUE
+
+
+#: COMBIEN DE JETONS DINOv3 DÉCRIVENT LA PHOTO, À LA TEXTURATION.
+#:
+#: Le conditionnement d'image était lié à la grille de FORME : 512 pour le
+#: DiT 512, 1024 pour tous les autres, écrit en dur dans
+#: `texture_mesh_multiview` et plafonné dans `texture_mesh`. Les deux
+#: grandeurs n'ont pourtant rien à voir. `get_cond` pose cette valeur dans
+#: `image_cond_model.image_size`, et l'extracteur y redimensionne la vue DE
+#: FORCE, en LANCZOS, avant de la découper en tuiles de 16 pixels :
+#:
+#:     1024 -> 64x64  =  4 096 jetons pour toute l'image
+#:     1536 -> 96x96  =  9 216
+#:     2048 -> 128x128 = 16 384
+#:
+#: CE QUE ÇA CHANGE POUR DU TEXTE. Sur une figurine de 150 mm, une capitale
+#: gravée de 3 mm mesure une vingtaine de pixels dans le cadre normalisé à
+#: 1024 : elle tient dans UNE tuile. Le modèle sait qu'il y a de l'écriture,
+#: jamais lesquelles, et il la redessine. Une tuile plus fine ne fabrique
+#: pas de l'information, mais elle cesse d'en jeter.
+#:
+#: CE QUE ÇA NE CHANGE PAS, et c'est ce qui rend l'essai sûr : ni le DiT
+#: chargé, ni le décodeur, ni la grille latente 64³, ni le côté de l'atlas.
+#: DINOv3 place ses positions par RoPE — résolution native, aucune table
+#: apprise à interpoler, et le défaut de classe de l'extracteur est 2048 —
+#: et le DiT de texture empaquette son conditionnement en VarLenTensor,
+#: donc aucune longueur n'est supposée en aval.
+#:
+#: NON MESURÉ. Le coût attendu est du TEMPS (l'attention du ViT monte au
+#: carré des jetons) plus qu'de la mémoire (SDPA ne matérialise pas la
+#: matrice), et la pointe est isolée : sur 8 Go `keep_models_loaded` est
+#: faux, donc DINOv3 est déchargé avant que le DiT de texture se charge.
+#: À vérifier au `vrammetre` avant d'en faire un défaut.
+#:
+#: None = le comportement d'hier. LUMENGEN_COND_TEXTURE l'impose pour un banc.
+COND_TEXTURE = None
+
+
+def _cond_texture():
+    regle = os.environ.get("LUMENGEN_COND_TEXTURE")
+    if regle:
+        try:
+            return int(regle)
+        except ValueError:
+            log.warning("LUMENGEN_COND_TEXTURE illisible (%r), conditionnement "
+                        "inchangé", regle)
+    return COND_TEXTURE
+
+
+#: LA NETTETÉ DU VOTE ENTRE LES VUES, À LA TEXTURATION.
+#:
+#: Le pendant de MELANGE_MULTIVUE, qui ne vaut QUE pour la forme :
+#: `texturer_multivue` n'a jamais passé `blend_temperature`, donc la texture
+#: tournait au défaut du nœud ComfyUI (2,0) depuis le premier jour.
+#:
+#:     à 2   un texel pleine face reçoit 77,6 % de la vue de face
+#:     à 6                              99,5 %
+#:
+#: CE QUE LA TEXTURE A DE PARTICULIER, ET QUI JUSTIFIE UN RÉGLAGE À ELLE. La
+#: forme a besoin des quatre vues partout : une cellule du nez est décrite,
+#: même mal, par chacune. La couleur non — la face est PHOTOGRAPHIÉE. Le
+#: multivue n'a rien à apprendre au devant, il n'a qu'à peindre le dos. Y
+#: mêler trois vues qui ne voient pas la face n'ajoute aucune information et
+#: retire de la netteté.
+#:
+#: None = le comportement d'hier (2,0). LUMENGEN_BANC_MELANGE_TEX l'impose.
+MELANGE_TEXTURE = None
+
+
+def _melange_texture():
+    regle = os.environ.get("LUMENGEN_BANC_MELANGE_TEX")
+    if regle:
+        try:
+            return float(regle)
+        except ValueError:
+            log.warning("LUMENGEN_BANC_MELANGE_TEX illisible (%r), mélange "
+                        "inchangé", regle)
+    return MELANGE_TEXTURE
+
+
 PALIER_DE_REPLI = {"standard": "draft", "high": "standard", "max": "high"}
 
 
@@ -1584,6 +1664,8 @@ class Engine:
                     glb, _base, _mr = remaillage.texturer_multivue(
                         pipe, tm, image, vues, seed=seed,
                         resolution=r.tex_resolution,
+                        cond_resolution=_cond_texture(),
+                        melange=_melange_texture(),
                         texture_size=cote_atlas,
                         steps=pas_texture,
                         guidance=guidage_texture,
@@ -1592,6 +1674,7 @@ class Engine:
                     glb, _base, _mr = remaillage.texturer(
                         pipe, tm, image, seed=seed,
                         resolution=r.tex_resolution,
+                        cond_resolution=_cond_texture(),
                         texture_size=cote_atlas,
                         steps=pas_texture,
                         guidance=guidage_texture,

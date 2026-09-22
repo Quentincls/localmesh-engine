@@ -1,4 +1,5 @@
 from typing import *
+import os
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -498,8 +499,48 @@ class FlowEulerMultiViewSampler(FlowEulerSampler):
             grille = max(8, (etendue + 7) // 8 * 8)
         # Le centre d'une cellule, pas son coin : sur une grille de 32, la
         # cellule 0 vaut -0,97 et la cellule 31 +0,97, symétriques.
-        x_lr = ((coords[:, _AXE_LARGEUR].float() + 0.5) / grille) * 2 - 1.0
-        y_fb = ((coords[:, _AXE_PROFONDEUR].float() + 0.5) / grille) * 2 - 1.0
+        # AJOUT LOCALMESH — LE VOTE EST NORMALISE PAR AXE, ET VOICI POURQUOI.
+        #
+        # Rapporter les deux axes a la GRILLE suppose que le sujet la remplit
+        # dans les deux directions. TRELLIS.2 ne remplit la boite que sur
+        # l'axe LE PLUS LONG : sur un sujet plat, l'axe mince n'en occupe
+        # qu'une fraction, et son score est ecrase d'autant.
+        #
+        # MESURE DU 22 SEPTEMBRE 2026, cassette a texte, maillage livre :
+        #   etendues  x 1,000   y 0,688   z 0,122
+        # L'axe front/back (z) n'occupe que 12,2 % de la grille, donc y_fb ne
+        # varie qu'entre -0,12 et +0,12 pendant que x_lr couvre -1 a +1. Le
+        # signal droite/gauche est HUIT FOIS plus fort que le signal
+        # avant/arriere, et il gagne le vote sur la face elle-meme :
+        #
+        #   sur la grande face, T=2   front 0,248   RIGHT 0,528   back 0,152
+        #   au bord,            T=2   front 0,154   RIGHT 0,731   back 0,095
+        #
+        # Ce sont donc les photos de PROFIL — des vues tranche qui ne montrent
+        # rien — qui peignent la face. Et monter la temperature AGGRAVE le
+        # defaut puisqu'elle amplifie l'ecart : mesure du meme jour, detail
+        # fin p99,9 de 39,0 a T=2, 38,3 a T=6, 31,0 a T=12.
+        #
+        # Le defaut est INVISIBLE sur un sujet cubique — samourai, tete, les
+        # deux sujets du banc — et decisif sur un sujet plat. Or les objets
+        # plats (cassette, boite, livre, pochette, plaque) sont precisement
+        # ceux qui portent du texte.
+        #
+        # Normaliser sur l'etendue REELLE du sujet rend a chaque axe la meme
+        # autorite, quelle que soit la forme. Non renseigne, le comportement
+        # d'hier au bit pres.
+        if os.environ.get("LUMENGEN_MV_TEX_ISO") == "1":
+            def _sur_le_sujet(col):
+                c = coords[:, col].float()
+                lo, hi = c.min(), c.max()
+                if (hi - lo) < 1e-6:
+                    return torch.zeros_like(c)
+                return ((c - lo) / (hi - lo)) * 2 - 1.0
+            x_lr = _sur_le_sujet(_AXE_LARGEUR)
+            y_fb = _sur_le_sujet(_AXE_PROFONDEUR)
+        else:
+            x_lr = ((coords[:, _AXE_LARGEUR].float() + 0.5) / grille) * 2 - 1.0
+            y_fb = ((coords[:, _AXE_PROFONDEUR].float() + 0.5) / grille) * 2 - 1.0
         scores = torch.stack(_scores_des_vues(x_lr, y_fb, views), dim=1) # (N, num_views)
         weights = torch.softmax(scores * blend_temperature, dim=1)
         return weights
