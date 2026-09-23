@@ -135,6 +135,48 @@ def _melange_texture():
     return MELANGE_TEXTURE
 
 
+#: LA TEXTURE A QUATRE PHOTOS : LES QUATRE D'UN SEUL TENANT.
+#:
+#: Jusqu'au 23 septembre 2026, quatre photos passaient par `texturer_multivue`,
+#: qui fait tourner le DiT de texture QUATRE FOIS par pas de debruitage — une
+#: fois par vue — puis moyenne ses quatre predictions. Moyenner des
+#: trajectoires de diffusion coute de la nettete, toujours : un client qui
+#: donnait quatre photos obtenait une texture MOINS nette qu'avec une seule.
+#: La docstring de cette fonction portait encore « NON MESURE ENCORE ».
+#:
+#: `texture_mesh` accepte deja une LISTE d'images, et `get_cond` fond leurs
+#: jetons en une seule sequence : une trajectoire, aucune moyenne, guidage
+#: intact. Mesure du 22 septembre, meme maillage fige, graine 42, palier
+#: standard, detail fin de l'atlas :
+#:
+#:     sujet       quatre predictions moyennees   un seul tenant   gain
+#:     samourai                  63,7                   75,3        +18 %
+#:     cassette                  38,7                   62,7        +62 %
+#:     moto                      57,7                   76,0        +32 %
+#:
+#: et 272 s -> 117 s, pic VRAM 4,70 -> 4,59 Go. Confirme a l'oeil sur les
+#: trois (planche `mono4-verdict.png` du banc texture).
+#:
+#: LE CONDITIONNEMENT A 512, ET CE N'EST PAS UNE ECONOMIE. Quatre vues a 1024
+#: font 16 384 jetons ; a 512, 4 096 — le cout d'une seule vue a 1024. Et la
+#: variante a 512 BAT celle a 1024 sur les trois sujets. `LUMENGEN_COND_TEXTURE`
+#: garde la main s'il est pose.
+#:
+#: `LUMENGEN_TEXTURE_4VUES=moyenne` rend l'ancien chemin, pour comparer.
+TEXTURE_QUATRE_VUES = "ensemble"
+COND_QUATRE_VUES = 512
+
+
+def _texture_quatre_vues():
+    regle = os.environ.get("LUMENGEN_TEXTURE_4VUES")
+    if regle in ("ensemble", "moyenne"):
+        return regle
+    if regle:
+        log.warning("LUMENGEN_TEXTURE_4VUES illisible (%r), quatre vues "
+                    "d'un seul tenant", regle)
+    return TEXTURE_QUATRE_VUES
+
+
 PALIER_DE_REPLI = {"standard": "draft", "high": "standard", "max": "high"}
 
 
@@ -1656,17 +1698,15 @@ class Engine:
 
         try:
             with vrammetre.Metre() as metre:
-                if vues:
-                    # La texture regarde les MEMES vues que la forme :
-                    # `texture_mesh_multiview` pondere chaque texel par la
-                    # POSITION de sa cellule. Un dos observe n'est plus
-                    # invente.
+                if vues and _texture_quatre_vues() == "moyenne":
+                    # L'ANCIEN CHEMIN, garde pour comparer : quatre
+                    # predictions par pas, moyennees. Voir TEXTURE_QUATRE_VUES
+                    # pour ce qu'il coute.
                     #
-                    # CE COMMENTAIRE DISAIT « par l'angle entre sa normale et
-                    # chaque camera », comme celui de `remaillage.texturer_
-                    # multivue`. C'est faux : aucune normale n'est lue.
-                    # Corrige le 22 septembre 2026 apres qu'il ait envoye une
-                    # enquete sur une fausse piste pendant une demi-journee.
+                    # `texture_mesh_multiview` pondere chaque texel par la
+                    # POSITION de sa cellule — aucune normale n'est lue,
+                    # contrairement a ce que ce commentaire affirmait avant
+                    # le 22 septembre 2026.
                     glb, _base, _mr = remaillage.texturer_multivue(
                         pipe, tm, image, vues, seed=seed,
                         resolution=r.tex_resolution,
@@ -1677,10 +1717,25 @@ class Engine:
                         guidance=guidage_texture,
                         jalon=step)
                 else:
+                    # UNE PHOTO, OU QUATRE D'UN SEUL TENANT. Avec quatre
+                    # photos, la face et ses trois voisines forment une seule
+                    # sequence de conditionnement : le DiT tourne une fois par
+                    # pas. L'ordre est celui du banc qui l'a mesure ; il est
+                    # sans effet sur le resultat, l'attention croisee ne
+                    # voyant qu'un ensemble de jetons.
+                    entree, cond = image, _cond_texture()
+                    if vues:
+                        entree = [image] + [vues[k] for k in
+                                            ("droite", "dos", "gauche")
+                                            if k in vues]
+                        if cond is None:
+                            cond = COND_QUATRE_VUES
+                        log.info("texture : %d vues d'un seul tenant, "
+                                 "conditionnement %d", len(entree), cond)
                     glb, _base, _mr = remaillage.texturer(
-                        pipe, tm, image, seed=seed,
+                        pipe, tm, entree, seed=seed,
                         resolution=r.tex_resolution,
-                        cond_resolution=_cond_texture(),
+                        cond_resolution=cond,
                         texture_size=cote_atlas,
                         steps=pas_texture,
                         guidance=guidage_texture,

@@ -579,7 +579,13 @@ _RESCALE_T = 3.0
 def texturer(pipe, tm, image, *, seed: int, resolution: int,
              texture_size: int, steps: int, guidance: float, jalon=None,
              cond_resolution: int | None = None):
-    """Rend (trimesh texturé, baseColor PIL RGBA, metallicRoughness PIL RGB)."""
+    """Rend (trimesh texturé, baseColor PIL RGBA, metallicRoughness PIL RGB).
+
+    `image` est une PIL, ou une LISTE de PIL : c'est ainsi que quatre photos
+    texturent depuis le 23 septembre 2026. `get_cond` fond les jetons des
+    vues en une seule séquence, le DiT tourne une fois par pas et rien n'est
+    moyenné. Voir `pipeline.TEXTURE_QUATRE_VUES` pour la mesure.
+    """
     originaux = _brancher_jalons(pipe, jalon)
     try:
         return pipe.texture_mesh(
@@ -698,9 +704,12 @@ def texturer_multivue(pipe, tm, face, vues, *, seed: int, resolution: int,
     ici on ne touche à rien : cette fonction reçoit des mots, pas des
     degrés.
 
-    NON MESURÉ ENCORE : écrit le 27 août pendant que la carte était prise.
-    À la première génération d'essai, vérifier les flancs ET le pic de
-    mémoire (quatre conditionnements DINOv3 au lieu d'un).
+    MESURÉE LE 22 SEPTEMBRE 2026, ET PLUS LE CHEMIN PAR DÉFAUT. Moyenner
+    quatre prédictions par pas coûte de la netteté : sur le même maillage
+    figé, cette fonction rend 63,7 / 38,7 / 57,7 de détail fin (samouraï,
+    cassette, moto) contre 75,3 / 62,7 / 76,0 pour `texturer` recevant les
+    quatre photos d'un seul tenant — et met 272 s au lieu de 117. Elle ne
+    sert plus que sous `LUMENGEN_TEXTURE_4VUES=moyenne`, pour comparer.
     """
     originaux = _brancher_jalons(pipe, jalon)
     try:
