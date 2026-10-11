@@ -219,19 +219,30 @@ def _retirer_debris(v, f, *, ratio_aire: float, distance_mini: float,
         return v, f
     try:
         bvh = cumesh.cuBVH(v.contiguous(), faces_corps.contiguous().int())
-        for morceau in torch.nonzero(petit, as_tuple=True)[0].tolist():
-            pts = v[f[etiquettes == morceau].long().reshape(-1)]
-            if pts.shape[0] == 0:
-                continue
-            if pts.shape[0] > 512:
-                pris = torch.randperm(pts.shape[0], device=pts.device)[:512]
-                pts = pts[pris]
-            d = bvh.unsigned_distance(pts.contiguous())
-            if isinstance(d, (tuple, list)):
-                d = d[0]
-            if float(d.median()) > seuil:
-                decolle[morceau] = True
-        del bvh
+        # TOUS LES PETITS MORCEAUX EN UNE SEULE PASSE. La boucle d'avant
+        # cherchait les faces de CHAQUE morceau dans la liste complète des
+        # faces, puis attendait la carte : sur une poupée de mille éclats,
+        # 122 s sur 435, pour un calcul de distance qui prend une seconde.
+        # Même règle qu'avant : la médiane des distances des sommets de ses
+        # faces à la coque.
+        sel = petit[etiquettes]
+        lab = etiquettes[sel].repeat_interleave(3)
+        pts = v[f[sel].long().reshape(-1)]
+        d = bvh.unsigned_distance(pts.contiguous())
+        if isinstance(d, (tuple, list)):
+            d = d[0]
+        d = d.reshape(-1).float()
+        # La médiane par morceau : tri par distance, puis tri STABLE par
+        # morceau, et l'élément du milieu de chaque groupe.
+        o = torch.argsort(d)
+        lab, d = lab[o], d[o]
+        o = torch.sort(lab, stable=True).indices
+        lab, d = lab[o], d[o]
+        comptes = torch.bincount(lab, minlength=int(nombre))
+        debuts = torch.cumsum(comptes, 0) - comptes
+        idx = torch.nonzero(petit & (comptes > 0), as_tuple=True)[0]
+        decolle[idx] = d[debuts[idx] + (comptes[idx] - 1) // 2] > seuil
+        del bvh, sel, lab, pts, d, o, comptes, debuts, idx
     except Exception as exc:                                  # noqa: BLE001
         log.warning("distance au corps non mesurable (%s) : aucun débris "
                     "retiré, l'objet passe entier", exc)
@@ -410,6 +421,7 @@ def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
         # tête de `config.DEBRIS_RATIO_AIRE`.
         if jalon:
             jalon("removing debris", 0.57)
+        _deposer_banc("avant-debris", v, f)
         v, f = _retirer_debris(v, f, ratio_aire=ratio_aire,
                                distance_mini=distance_mini,
                                part_maxi=part_maxi, notes=notes)
@@ -578,13 +590,16 @@ _RESCALE_T = 3.0
 
 def texturer(pipe, tm, image, *, seed: int, resolution: int,
              texture_size: int, steps: int, guidance: float, jalon=None,
-             cond_resolution: int | None = None):
+             cond_resolution: int | None = None, plafond_jetons: int | None = None):
     """Rend (trimesh texturé, baseColor PIL RGBA, metallicRoughness PIL RGB).
 
-    `image` est une PIL, ou une LISTE de PIL : c'est ainsi que quatre photos
-    texturent depuis le 23 septembre 2026. `get_cond` fond les jetons des
-    vues en une seule séquence, le DiT tourne une fois par pas et rien n'est
-    moyenné. Voir `pipeline.TEXTURE_QUATRE_VUES` pour la mesure.
+    `image` est une PIL, ou une LISTE de PIL : c'est le chemin « d'un seul
+    tenant » des quatre photos. `get_cond` fond les jetons des vues en une
+    seule séquence, le DiT tourne une fois par pas et rien n'est moyenné.
+    Il a été le défaut du 23 au 24 septembre 2026 ; depuis le jury à
+    l'aveugle, quatre photos passent par `texturer_multivue`, et une liste
+    n'arrive ici que sous `LUMENGEN_TEXTURE_4VUES=ensemble`. Voir
+    `pipeline.TEXTURE_QUATRE_VUES` pour la mesure et le jury.
     """
     originaux = _brancher_jalons(pipe, jalon)
     try:
@@ -608,6 +623,9 @@ def texturer(pipe, tm, image, *, seed: int, resolution: int,
             # combien de jetons DINOv3 décrivent la photo. None rend le
             # comportement d'avant, au bit près. Voir `pipeline._cond_texture`.
             cond_resolution=cond_resolution,
+            # LE PLAFOND DE JETONS DE LA TEXTURE : au-delà, le DiT 512 plutôt
+            # qu'un débordement de la carte (voir `texture_mesh`).
+            max_tex_tokens=plafond_jetons,
             texture_size=texture_size,       # côté de l'atlas
             texture_alpha_mode="OPAQUE",
             # ACCEPTÉ ET IGNORÉ : `postprocess_mesh` code `doubleSided=True`
@@ -704,12 +722,17 @@ def texturer_multivue(pipe, tm, face, vues, *, seed: int, resolution: int,
     ici on ne touche à rien : cette fonction reçoit des mots, pas des
     degrés.
 
-    MESURÉE LE 22 SEPTEMBRE 2026, ET PLUS LE CHEMIN PAR DÉFAUT. Moyenner
-    quatre prédictions par pas coûte de la netteté : sur le même maillage
-    figé, cette fonction rend 63,7 / 38,7 / 57,7 de détail fin (samouraï,
-    cassette, moto) contre 75,3 / 62,7 / 76,0 pour `texturer` recevant les
-    quatre photos d'un seul tenant — et met 272 s au lieu de 117. Elle ne
-    sert plus que sous `LUMENGEN_TEXTURE_4VUES=moyenne`, pour comparer.
+    LE CHEMIN PAR DÉFAUT DES QUATRE PHOTOS, DE NOUVEAU DEPUIS LE 24
+    SEPTEMBRE 2026. Moyenner quatre prédictions par pas coûte du détail
+    d'atlas : sur le même maillage figé, cette fonction rend 63,7 / 38,7 /
+    57,7 de détail fin (samouraï, cassette, moto) contre 75,3 / 62,7 / 76,0
+    pour `texturer` recevant les quatre photos d'un seul tenant, et met
+    272 s au lieu de 117. Le chemin d'un seul tenant a servi par défaut du
+    23 au 24 septembre, puis il a perdu le jury à l'aveugle (7 sujets,
+    moyenne 150, un seul tenant 83, égal 19) : plus de contraste fin n'est
+    pas une texture plus juste. C'est donc cette fonction qui texture toute
+    génération à quatre photos ; `LUMENGEN_TEXTURE_4VUES=ensemble` rend
+    l'autre chemin, pour comparer. Voir `pipeline.TEXTURE_QUATRE_VUES`.
     """
     originaux = _brancher_jalons(pipe, jalon)
     try:

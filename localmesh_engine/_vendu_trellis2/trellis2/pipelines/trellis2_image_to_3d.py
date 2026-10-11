@@ -2906,6 +2906,7 @@ class Trellis2ImageTo3DPipeline(Pipeline):
         self,
         mesh: trimesh.Trimesh,
         resolution: int = 1024,
+        max_tokens: Optional[int] = None,
     ) -> SparseTensor:
         """
         Encode the meshes to structured latent.
@@ -2931,6 +2932,23 @@ class Trellis2ImageTo3DPipeline(Pipeline):
             timing=True,
         )
             
+        # ECART A L AMONT (LocalMesh, 23 septembre 2026). Les jetons que verra
+        # le DiT de texture sont les cellules occupees de la grille divisee par
+        # 16 : verifie au jeton pres sur la jardiniere (31 625). On les compte
+        # ICI, sur le processeur, AVANT l encodeur : c est lui qui montait a
+        # 10,8 Go sur la jardiniere. Au-dela du plafond, on rend None et
+        # l appelant repart en 512.
+        if max_tokens:
+            # Une clé entière par cellule : `unique` sur une colonne est cent
+            # fois plus rapide que sur des lignes (12 s sur la poupée).
+            q = voxel_indices.long() // 16
+            m = resolution // 16 + 1
+            n_jetons = int(torch.unique((q[:, 0] * m + q[:, 1]) * m + q[:, 2]).numel())
+            if n_jetons > max_tokens:
+                print(f"[LocalMesh] texture : {n_jetons} jetons a {resolution}, "
+                      f"plafond {max_tokens}, DiT 512")
+                return None
+
         vertices = SparseTensor(
             feats=dual_vertices * resolution - voxel_indices,
             coords=torch.cat([torch.zeros_like(voxel_indices[:, 0:1]), voxel_indices], dim=-1)
@@ -3195,6 +3213,7 @@ class Trellis2ImageTo3DPipeline(Pipeline):
         tex_slat_sampler_params: dict = {},
         resolution: int = 1024,
         cond_resolution: Optional[int] = None,
+        max_tex_tokens: Optional[int] = None,
         texture_size: int = 2048,
         texture_alpha_mode = 'OPAQUE',
         double_side_material = True,
@@ -3235,8 +3254,29 @@ class Trellis2ImageTo3DPipeline(Pipeline):
         if not self.keep_models_loaded:
             self.unload_image_cond_model()
         
-        shape_slat = self.encode_shape_slat(mesh, resolution)
-        
+        shape_slat = self.encode_shape_slat(
+            mesh, resolution,
+            max_tokens=max_tex_tokens if resolution == 1024 else None)
+        if shape_slat is None:
+            resolution = 512
+            shape_slat = self.encode_shape_slat(mesh, resolution)
+
+        # ECART A L AMONT (LocalMesh, 23 septembre 2026). AUCUN PLAFOND de
+        # jetons ne gardait la texture : une jardiniere feuillue, bien au-dela
+        # des 11 700 a 13 000 jetons d une poupee ou d une moto, debordait les
+        # 8 Go et passait a 233 s par pas, 45 minutes. Au-dela du plafond de la
+        # carte, on reencode a 512 et on prend le DiT 512 : quatre fois moins
+        # de jetons, une texture un peu moins fine, rendue en minutes.
+        n_jetons = int(shape_slat.coords.shape[0])
+        print(f"[LocalMesh] texture : {n_jetons} jetons a {resolution}"
+              + (f", plafond {max_tex_tokens}" if max_tex_tokens else ""))
+        if max_tex_tokens and resolution == 1024 and n_jetons > max_tex_tokens:
+            print("[LocalMesh] texture : au-dela du plafond, DiT 512")
+            del shape_slat
+            torch.cuda.empty_cache()
+            resolution = 512
+            shape_slat = self.encode_shape_slat(mesh, resolution)
+
         if resolution==512:            
             self.unload_tex_slat_flow_model_1024()
             self.load_tex_slat_flow_model_512()

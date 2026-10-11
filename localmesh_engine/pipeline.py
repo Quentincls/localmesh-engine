@@ -162,8 +162,19 @@ def _melange_texture():
 #: variante a 512 BAT celle a 1024 sur les trois sujets. `LUMENGEN_COND_TEXTURE`
 #: garde la main s'il est pose.
 #:
-#: `LUMENGEN_TEXTURE_4VUES=moyenne` rend l'ancien chemin, pour comparer.
-TEXTURE_QUATRE_VUES = "ensemble"
+#: `LUMENGEN_TEXTURE_4VUES=ensemble` rend ce chemin, pour comparer.
+#:
+#: RETOUR A LA MOYENNE LE 24 SEPTEMBRE 2026, SUR JURY A L'AVEUGLE. La mesure
+#: ci-dessus est un DETAIL d'atlas, pas un jugement : plus de contraste fin
+#: n'est pas une texture plus juste. Sur la build d'essai, Quentin a vu une
+#: tache sombre sur la lentille rouge d'un feu tricolore, absente de la
+#: photo et de la version en ligne. Jury A/B sur 7 sujets a quatre photos,
+#: meme forme figee, 84 images x 3 regards : moyenne 150, un seul tenant 83,
+#: egal 19 (vues entieres 60 contre 20). La moyenne gagne sur le corps
+#: (36-0), la tete, les deux feux et le samourai ; le seul tenant sur la
+#: moto (25-9) ; cassette a egalite. Prix : la texture repasse de ~2 a
+#: ~4-5 min en quatre photos.
+TEXTURE_QUATRE_VUES = "moyenne"
 COND_QUATRE_VUES = 512
 
 
@@ -328,6 +339,12 @@ class GenerateSettings:
     #: without a budget (nothing was removed) and pointless for 3D printing
     #: (a printer prints geometry, not a lighting trick).
     bake_normal_map: bool = True
+    #: LA PROJECTION DES PHOTOS (`projection.py`) : les vrais pixels des
+    #: photos recopies sur la texture, la ou elles voient la surface. Un
+    #: texte imprime redevient exact au lieu d'etre redessine. False rend la
+    #: texture dessinee seule : a garder quand la forme et la photo ne
+    #: s'accordent pas, une photo juste sur une forme fausse dedoublant.
+    projection_texture: bool = True
 
     # --- finishing ---------------------------------------------------------
     finish: FinishSettings = field(default_factory=FinishSettings)
@@ -415,10 +432,16 @@ class GenerateResult:
     vram_portee: str = "pytorch"
     #: Part de la carte occupee au pic, en pourcent. 0 si non mesurable.
     vram_occupation_pct: float = 0.0
+    #: `model_<seed>.ai.glb` : le meme modele, avec la texture que l'IA a
+    #: dessinee AVANT la projection des photos. None quand la projection n'a
+    #: rien peint (sautee, echouee, 0 %) : il n'y a pas de seconde version, et
+    #: c'est ce champ, pas une note ni `stages`, qui le dit a l'interface.
+    glb_ai: Optional[Path] = None
 
     def as_dict(self) -> dict:
         return {
             "glb": str(self.glb_path),
+            "glb_ai": str(self.glb_ai) if self.glb_ai else None,
             "thumbnail": str(self.thumbnail) if self.thumbnail else None,
             "seed": self.seed,
             "detail": self.detail,
@@ -798,6 +821,8 @@ class Engine:
         patches.apply()
         from . import leurre_nvdiffrast as _leurre
         _leurre.verifier()      # le journal dit quel nvdiffrast est monté
+        from . import leurre_plyfile as _leurre_ply
+        _leurre_ply.verifier()  # et si plyfile ou un autre paquet interdit l'est
 
         config_name = _write_local_pipeline_config(self.weights)
         # The vendored pipeline loads each sub-model on demand and takes extra
@@ -1017,6 +1042,9 @@ class Engine:
             role = _NOM_DU_ROLE[angle]
             if role in lot and role != "front":
                 vues_pil[angle], geo_vues[role] = lot[role]
+        # L'ALPHA QUI A SERVI, garde pour la projection des photos, et retire
+        # du dictionnaire de geometrie qui n'a pas a transporter une image.
+        alphas_prep = {role: g.pop("alpha", None) for role, g in geo_vues.items()}
         # LE DETOURAGE REND SA MEMOIRE AVANT LE TRAVAIL, PAS APRES. BiRefNet_HR
         # pese 424 Mo sur la carte, et `server.py` ne le liberait qu'APRES le
         # retour de `generate()` : il etait donc sous TOUS les pics, y compris
@@ -1376,6 +1404,8 @@ class Engine:
             import o_voxel
             from . import leurre_nvdiffrast as _leurre
             _leurre.verifier()      # au journal si le vrai nvdiffrast est monté
+            from . import leurre_plyfile as _leurre_ply
+            _leurre_ply.verifier()  # et si plyfile ou un autre paquet interdit l'est
 
             glb = o_voxel.postprocess.to_glb(
                 vertices=mesh.vertices,
@@ -1539,6 +1569,27 @@ class Engine:
             step("cleaning the atlas", 0.96)
             self._repad_atlas(glb, notes)
 
+        # LA PROJECTION DES PHOTOS. Apres la finition, parce que c'est elle
+        # qui recoud l'enroulement des faces et que la projection ne garde que
+        # les faces tournees vers chaque appareil ; avant `_orient_and_scale`,
+        # parce que les cameras du moteur ont Y pour verticale. Seulement sur
+        # le chemin `texture_mesh` : le repli `to_glb` et Pixal3D ont d'autres
+        # UV, et leur texture ne vient pas d'ici.
+        compagnon_ai = None
+        if chemin == "texture_mesh" and getattr(settings, "projection_texture", True):
+            # TRACE, sous drapeau : l'objet tel qu'il etait AVANT la projection,
+            # pour comparer les deux sur le meme maillage. Rien sans le drapeau.
+            # Pas dans le repere du modele livre ; le compagnon .ai.glb, lui, l'est.
+            if os.environ.get("LUMENGEN_TRACE_PROJECTION") == "1":
+                try:
+                    glb.export(out_dir / "avant_projection.glb")
+                except Exception as exc:                      # noqa: BLE001
+                    log.warning("trace avant projection non deposee : %s", exc)
+            compagnon_ai = self._projeter_photos(
+                glb, image, vues_pil, alphas_prep, azimuts_mv, cotes_mesures,
+                settings, step, notes)
+            timer.mark("projection")
+
         glb = self._orient_and_scale(glb, settings)
 
         from . import materials
@@ -1592,7 +1643,16 @@ class Engine:
         # modeles deja sur le disque au moment de les exporter.
         glb.export(provisoire)
         provisoire.replace(out_path)
+        # LE COMPAGNON, APRES LE LIVRABLE ET JAMAIS A SA PLACE. Compte dans
+        # « finish » : ce sont de vraies secondes du travail, et l'estimation
+        # se cale sur cette tranche.
+        glb_ai = (_ecrire_compagnon_ai(glb, out_path, *compagnon_ai)
+                  if compagnon_ai is not None else None)
         timer.mark("finish")
+        # Les deux `step` qui restent sont les derniers ou l'annulation est
+        # lue : voir `_sans_compagnon_orphelin`. Le NOM reste `step` : c'est
+        # sur lui que `verifier_etapes.py` retrouve les libelles a traduire.
+        step = _sans_compagnon_orphelin(step, glb_ai)
 
         # A couple of seconds, and it is what makes several seeds comparable at
         # a glance instead of one click and one viewport load at a time.
@@ -1646,6 +1706,7 @@ class Engine:
 
         return GenerateResult(
             glb_path=out_path,
+            glb_ai=glb_ai,
             thumbnail=thumb,
             seed=seed,
             detail=settings.detail,
@@ -1739,7 +1800,8 @@ class Engine:
                         texture_size=cote_atlas,
                         steps=pas_texture,
                         guidance=guidage_texture,
-                        jalon=step)
+                        jalon=step,
+                        plafond_jetons=_plafond_de_tokens())
         except JobCancelled:
             raise
         except Exception as exc:                              # noqa: BLE001
@@ -1973,6 +2035,79 @@ class Engine:
                     f"le long des coutures UV")
 
     @staticmethod
+    def _projeter_photos(glb, image, vues_pil, alphas_prep, azimuts_mv,
+                         cotes_mesures, settings, step, notes):
+        """Recopier les vrais pixels des photos sur la texture. Voir `projection`.
+
+        UN ECHEC N'EST JAMAIS FATAL : la texture dessinee est deja la, complete.
+        On la garde, on le dit dans une note, et le travail se termine. Seule
+        une annulation remonte.
+
+        Rend `(maillage, image d'avant)` quand la projection a peint quelque
+        chose, None sinon (sautee, echouee, 0 %) : c'est ce qui decide s'il y
+        a un compagnon `.ai.glb`, voir `_ecrire_compagnon_ai`.
+        """
+        from . import multivue, projection, remaillage
+
+        cibles = [g for g in _geometries(glb)
+                  if getattr(g.visual, "uv", None) is not None
+                  and projection._texture_de(g) is not None]
+        if len(cibles) != 1:
+            log.info("projection des photos sautee : %d maillage(s) texture(s)",
+                     len(cibles))
+            return None
+
+        preparees = {"face": (image, alphas_prep.get("front"))}
+        for angle, vue in (vues_pil or {}).items():
+            preparees[angle] = (vue, alphas_prep.get(_NOM_DU_ROLE[angle]))
+
+        # LES ANGLES DE PRISE DE VUE. Mesures pour la forme quand Depth
+        # Anything 3 a repondu : chaque photo recoit alors l'angle d'ou elle a
+        # ete prise, meme rangee dans le mauvais emplacement. Sinon les angles
+        # ronds, profils echanges si la lateralite le dit. Jamais une seconde
+        # mesure : `{}` le signifie a `projeter`. Quand les profils ne sont
+        # ni mesures ni imposes, la projection verifie qu'ils ne sont pas
+        # echanges : elle voit les silhouettes, la convention ne les voit pas.
+        if azimuts_mv:
+            vers = {"front": "face", "right": "droite", "back": "dos", "left": "gauche"}
+            azimuts = {vers[k]: float(v) for k, v in azimuts_mv.items() if k in vers}
+            cotes_surs = True
+        else:
+            parite = multivue.parite(getattr(settings, "lateralite", "auto"),
+                                     cotes_mesures)
+            azimuts = {"droite": 270.0, "gauche": 90.0} if parite["swap_sides"] else {}
+            cotes_surs = parite["source"] != "convention"
+
+        # L'IMAGE D'AVANT, GARDEE PAR SIMPLE REFERENCE. `projeter` en fabrique
+        # une neuve et la pose a sa place (`mat.baseColorTexture = img`) : il
+        # ne repeint jamais l'ancienne, qui reste donc la texture de l'IA
+        # intacte. Une copie couterait 64 Mo de plus en 4096 pour rien.
+        avant = projection._texture_de(cibles[0])
+        remaillage.purger()
+        step("projection de la photo", 0.91)
+        try:
+            rapport = projection.projeter(
+                cibles[0], preparees=preparees, azimuts=azimuts,
+                cotes_surs=cotes_surs, jalon=lambda f: step("projection de la photo", 0.91 + 0.04 * f))
+        except JobCancelled:
+            raise
+        except Exception as exc:                              # noqa: BLE001
+            log.warning("projection des photos echouee (%s) : texture dessinee "
+                        "gardee", exc)
+            notes.append("La projection des photos a échoué ; la texture "
+                         f"dessinée est gardée. Cause : {exc}")
+            return None
+        finally:
+            remaillage.purger()
+        notes.append(f"photo projetée sur {rapport.couverture:.0f}% "
+                     "de la surface texturée")
+        # A 0 % les deux textures sont la meme : un compagnon n'offrirait
+        # qu'un bouton qui ne change rien.
+        if not (rapport.couverture > 0):
+            return None
+        return cibles[0], avant
+
+    @staticmethod
     def _orient_and_scale(glb, settings: GenerateSettings):
         """Put the asset where a DCC app expects it: correct up axis, real-world
         size, origin on the ground plane."""
@@ -2194,3 +2329,84 @@ def _geometries(glb) -> list:
     if hasattr(glb, "geometry"):
         return list(glb.geometry.values())
     return [glb]
+
+
+def _ecrire_compagnon_ai(glb, out_path: Path, geom, image_avant) -> Optional[Path]:
+    """Ecrire `model_<seed>.ai.glb` : le modele livre, texture de l'IA seule.
+
+    APPELE APRES L'EXPORT DU LIVRABLE, ET C'EST TOUTE LA GARANTIE. A ce
+    moment l'orientation, l'echelle, l'origine, l'alphaMode, le doubleSided
+    et les normales sont faits : on ne remplace que l'image baseColor, le
+    temps d'un export, et le compagnon est le meme fichier a cette image
+    pres. La trace `avant_projection.glb`, ecrite avant tout ca, ne l'est pas.
+
+    DANS LE MODE DE L'IMAGE FINALE. `apply_alpha_mode` retire l'alpha d'un
+    objet opaque, parce que celui de TRELLIS recopie la luminance ; remettre
+    l'image d'avant en RGBA le ramenerait, et l'objet sortirait en verre.
+
+    Meme export que le livrable, donc du PNG et pas de WebP (voir `_generate`),
+    ecrit a cote puis bascule. Ni vignette, ni .json : la bibliotheque prend
+    tout .json d'un dossier pour un manifeste, il ferait une carte fantome.
+    Pas de `step()` non plus, les libelles d'etape sont traduits ailleurs.
+
+    UN ECHEC N'EST JAMAIS FATAL : le livrable est deja sur le disque. On le
+    dit au journal, on ne laisse ni compagnon tronque ni `.partiel`, et on
+    rend None. L'image finale est TOUJOURS remise, succes ou non : `glb` sert
+    encore apres (vignette, comptes de faces).
+    """
+    compagnon = out_path.with_name(out_path.stem + ".ai.glb")
+    provisoire = compagnon.with_name(compagnon.stem + ".partiel.glb")
+    mat = getattr(getattr(geom, "visual", None), "material", None)
+    # Le meme choix d'attribut que `projection.projeter` pour poser son image.
+    champ = "baseColorTexture" if hasattr(mat, "baseColorTexture") else "image"
+    finale = getattr(mat, champ, None)
+    # `geom` doit etre un maillage DU modele exporte : si une etape entre la
+    # projection et l'export en rendait une copie, changer son image ne
+    # changerait rien au fichier, et le compagnon serait le livrable, muet.
+    if (finale is None or image_avant is None
+            or not any(g is geom for g in _geometries(glb))):
+        log.warning("compagnon IA non ecrit : texture finale introuvable sur "
+                    "le modele livre")
+        return None
+    try:
+        setattr(mat, champ, image_avant if image_avant.mode == finale.mode
+                else image_avant.convert(finale.mode))
+        glb.export(provisoire)
+        provisoire.replace(compagnon)
+    except Exception as exc:                                  # noqa: BLE001
+        log.warning("compagnon IA non ecrit : %s", exc)
+        try:
+            provisoire.unlink(missing_ok=True)
+        except OSError as exc_menage:                         # noqa: BLE001
+            log.warning("compagnon IA partiel non efface : %s", exc_menage)
+        return None
+    finally:
+        setattr(mat, champ, finale)
+    return compagnon
+
+
+def _sans_compagnon_orphelin(step, compagnon: Optional[Path]):
+    """`step`, qui efface le compagnon si l'annulation tombe la.
+
+    Apres l'export, il ne reste que deux `step` (la vignette, « done ») : ce
+    sont les derniers endroits ou l'ordre d'annuler est lu, et l'ordre donne
+    pendant les secondes d'export y tombe aussi. Le travail s'arrete alors
+    sans manifeste — personne ne nommera jamais ce fichier, et le menage du
+    serveur (`_effacer_le_dossier_vide`) ne touche pas un dossier qui garde un
+    .glb. Le compagnon y doublait le dechet de 35 a 40 Mo.
+
+    Le livrable, lui, reste : c'est un defaut plus ancien que le compagnon, et
+    le traiter change ce qu'une annulation tardive laisse a l'utilisateur.
+    """
+    def etape(stage: str, frac: float):
+        try:
+            step(stage, frac)
+        except JobCancelled:
+            if compagnon is not None:
+                try:
+                    compagnon.unlink(missing_ok=True)
+                except OSError as exc:                        # noqa: BLE001
+                    log.warning("compagnon IA non efface apres annulation : %s",
+                                exc)
+            raise
+    return etape

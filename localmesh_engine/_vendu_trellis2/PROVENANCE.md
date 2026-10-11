@@ -23,6 +23,22 @@
   modifiés (axes du mélange posés sur le repère réel de TRELLIS.2, passage
   négatif partagé, prédictions au fil de l'eau) ; les fichiers portent leurs
   commentaires. Le moteur tourne hors de ComfyUI, appelé directement en Python.
+- **Modifications de la version 1.2.0** (22 et 23 septembre 2026), deux
+  fichiers, commentaires sur place :
+  - `trellis2/pipelines/trellis2_image_to_3d.py` : `texture_mesh` et
+    `texture_mesh_multiview` prennent `cond_resolution`, la finesse du
+    conditionnement d'image détachée de la grille de forme. None rend le
+    comportement d'avant. `texture_mesh` prend aussi `max_tex_tokens`, et
+    `encode_shape_slat` prend `max_tokens` : les jetons de texture sont
+    comptés sur le processeur avant l'encodeur, et au-delà du plafond la
+    texture passe au DiT 512 au lieu de déborder de la carte. None rend le
+    comportement d'avant.
+  - `trellis2/pipelines/samplers/flow_euler.py` : le vote des vues de la
+    texture multi-vue peut se normaliser sur l'étendue du sujet plutôt que
+    sur la grille, sous `LUMENGEN_MV_TEX_ISO=1`. Inerte par défaut.
+- **Un fichier retire** (24 septembre 2026) : `trellis2/utils/mesh_utils.py`.
+  Il importait `plyfile` (GPL-3.0) au niveau module, et rien ne l'importait.
+  Le tableau ci-dessous compte les fichiers d'avant ce retrait.
 
 ## Qui a ecrit quoi, fichier par fichier
 

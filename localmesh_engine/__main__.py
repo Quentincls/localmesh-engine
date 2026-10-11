@@ -54,6 +54,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="la graine ; -1 en tire une au hasard")
     p.add_argument("--vers", "--to", dest="vers", type=Path, default=Path("."),
                    help="le dossier où déposer l'objet")
+    p.add_argument("--sans-projection", "--no-projection", dest="projection",
+                   action="store_false",
+                   help="garder la texture dessinée, sans y recopier les "
+                        "pixels des photos")
     a = p.parse_args(argv)
 
     if not a.photo.is_file():
@@ -99,7 +103,8 @@ def main(argv: list[str] | None = None) -> int:
 
     moteur = Engine()
     reglages = GenerateSettings(images=[a.photo.resolve()], vues=vues,
-                                detail=a.palier, seed=a.graine)
+                                detail=a.palier, seed=a.graine,
+                                projection_texture=a.projection)
     resultat = moteur.generate(reglages, sortie, progress=avance)
 
     print("%s" % resultat.glb_path)

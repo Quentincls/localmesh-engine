@@ -284,6 +284,12 @@ def bootstrap() -> None:
     from . import leurre_nvdiffrast
     leurre_nvdiffrast.installer()
 
+    # MEME GESTE POUR plyfile (GPL-3.0), que la meme wheel importe au niveau
+    # module (`o_voxel/io/ply.py:5`) alors que le moteur ne lit ni n ecrit
+    # aucun PLY par lui. Voir leurre_plyfile.py.
+    from . import leurre_plyfile
+    leurre_plyfile.installer()
+
     # LE PAQUET VENDORISE IMPORTE `uvraster` NU, ET IL N EST PAS SUR LE CHEMIN.
     #
     # `trellis2_image_to_3d.py` et `trellis2_texturing.py` ecrivent

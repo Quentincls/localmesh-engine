@@ -7,9 +7,9 @@ nuages de points ni de l'atelier d'images — ces choses appartiennent à
 l'application qui l'utilise.
 
 **La frontière n'a pas été choisie à la main.** Elle a été mesurée : la
-fermeture transitive des imports de `pipeline` compte dix-sept modules et
-n'atteint aucun module du produit. C'est cette fermeture, exactement, qui vit
-ici.
+fermeture transitive des imports relatifs de `pipeline` compte vingt et un
+noms au premier niveau du paquet (mesure du 11 octobre 2026) et n'atteint
+aucun module du produit. C'est cette fermeture, exactement, qui vit ici.
 
 Ce qu'il contient
 -----------------
@@ -19,6 +19,8 @@ Ce qu'il contient
   carte graphique et les budgets qui en découlent.
 - `matting`, `remaillage`, `normalbake`, `materials`, `meshops`, `uvraster` :
   détourage, nettoyage du maillage, cuisson des cartes, matériau, atlas.
+- `projection` : les pixels des photos reposés sur la texture dessinée par
+  le modèle, après la texturation (1.2.0).
 - `_vendu_trellis2` : le modèle de Microsoft, sous sa licence MIT d'origine,
   avec nos correctifs signalés dans le code.
 - `owned_tiled_mesh` : un propriétaire par quad aux frontières des tuiles,
@@ -36,7 +38,9 @@ Licence
 
 Apache 2.0, sauf le code recopié d'ailleurs, qui garde la sienne : le MIT de
 Microsoft Research, de Tencent et de visualbruno pour `_vendu_trellis2` et
-`_vendu_o_voxel`, l'Apache de valeo.ai pour `multivue/champ`. Un seul fichier
+`_vendu_o_voxel`, le MIT de Microsoft Research pour `_vendu_moge` (MoGe) et
+l'Apache 2.0 de Meta pour son sous-arbre `model/dinov2` (DINOv2), l'Apache
+de valeo.ai pour `multivue/champ`. Un seul fichier
 n'était pas libre, `multivue/champ/layers/rope.py`, sous l'accord DINOv3 de
 Meta : il a été réécrit et il est sous Apache 2.0 comme le reste. Les poids,
 eux, gardent chacun leur licence et ne sont pas redistribués. Voir NOTICE.
@@ -47,7 +51,7 @@ eux, gardent chacun leur licence et ne sont pas redistribués. Voir NOTICE.
 #: change est un changement de version, pas un detail. Elle est lue par
 #: `pyproject.toml`, annoncee sur `/health`, et c'est elle qu'un integrateur
 #: epingle.
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 __all__ = ["Engine", "GenerateResult", "GenerateSettings", "JobCancelled",
            "config", "__version__"]

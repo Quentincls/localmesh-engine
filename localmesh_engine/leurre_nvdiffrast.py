@@ -38,6 +38,7 @@ est là — le leurre ne sert qu'aux installations propres, celles qu'on livre.
 """
 from __future__ import annotations
 
+import importlib.machinery
 import importlib.util
 import logging
 import os
@@ -66,7 +67,7 @@ class _Refus:
 
 def _sous_le_runtime(chemin: str | None) -> bool:
     """Ce fichier vit-il sous la racine du runtime LocalMesh ?"""
-    racine = os.environ.get("LUMENGEN_ROOT")
+    racine = os.environ.get("LOCALMESH_ROOT") or os.environ.get("LUMENGEN_ROOT")
     if not racine:
         # Lancé sans la variable (un banc, un script) : la racine que
         # config a résolue vaut autant.
@@ -123,6 +124,9 @@ def installer() -> bool:
         return False
 
     torche = types.ModuleType("nvdiffrast.torch")
+    # Des specs, pour qu'un `importlib.util.find_spec("nvdiffrast")` venu
+    # d'une autre bibliotheque reponde au lieu de lever ValueError.
+    torche.__spec__ = importlib.machinery.ModuleSpec("nvdiffrast.torch", None)
     torche.RasterizeCudaContext = _Refus("nvdiffrast.torch.RasterizeCudaContext")
     torche.RasterizeGLContext = _Refus("nvdiffrast.torch.RasterizeGLContext")
     torche.rasterize = _Refus("nvdiffrast.torch.rasterize")
@@ -133,6 +137,8 @@ def installer() -> bool:
     racine = types.ModuleType("nvdiffrast")
     racine.__path__ = []          # un paquet, pour que `nvdiffrast.torch` resolve
     racine._leurre = True
+    racine.__spec__ = importlib.machinery.ModuleSpec("nvdiffrast", None,
+                                                     is_package=True)
     racine.torch = torche
 
     sys.modules["nvdiffrast"] = racine

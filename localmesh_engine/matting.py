@@ -147,8 +147,9 @@ class Matter:
             ((rgb * a[..., None]) * 255).astype(np.uint8)).crop(boite)
         log.info("matted subject: %dx%d crop, covers %.1f%% of the frame",
                  cut.width, cut.height, 100 * float((a > 0.5).mean()))
-        return cut, _geometrie_de_preparation(
-            taille_source, image.size, boite, sujet)
+        geo = _geometrie_de_preparation(taille_source, image.size, boite, sujet)
+        geo["alpha"] = _alpha_recadre(a, boite)
+        return cut, geo
 
     def preparer_lot(self, images: dict):
         """Detourer QUATRE vues du meme objet a la MEME echelle.
@@ -266,9 +267,11 @@ class Matter:
             ((rgb * a[..., None]) * 255).astype(np.uint8)).crop(box)
         log.info("matted subject: %dx%d crop, covers %.1f%% of the frame",
                  cut.width, cut.height, 100 * float((a > 0.5).mean()))
-        return cut, _geometrie_de_preparation(
+        geo = _geometrie_de_preparation(
             taille_source, image.size, box,
             (int(x0), int(y0), int(x1), int(y1)))
+        geo["alpha"] = _alpha_recadre(a, box)
+        return cut, geo
 
 
 #: UNE PISTE FERMEE PAR LA MESURE, ET QUI NE DOIT PAS SE ROUVRIR.
@@ -333,6 +336,23 @@ def _geometrie_de_preparation(taille_source, taille_travail, boite,
 
 
 _matter: Optional[Matter] = None
+
+
+def _alpha_recadre(a, boite):
+    """L'alpha EXACT qui a servi a preparer l'image, dans le meme cadre qu'elle.
+
+    La projection des photos (`projection.py`) en a besoin pour savoir quels
+    pixels de l'image preparee sont du sujet, et lesquels sont la bande d'alpha
+    douce, noircie par la premultiplication. Le redetourer apres coup serait
+    faux deux fois : sur une photo de plus de 2048 px le second alpha n'est pas
+    dans le meme cadre que celui-ci, et sur une photo deja detouree il n'est
+    pas le meme alpha.
+
+    Il voyage dans le dictionnaire de geometrie sous la cle "alpha", et le
+    pipeline l'en retire aussitot : rien de ce dictionnaire n'est ecrit sur le
+    disque, mais une image n'a rien a y faire au-dela de ce passage.
+    """
+    return Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)).crop(boite)
 
 
 def matter() -> Matter:
