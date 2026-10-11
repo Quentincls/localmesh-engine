@@ -51,10 +51,10 @@ eux, gardent chacun leur licence et ne sont pas redistribués. Voir NOTICE.
 #: change est un changement de version, pas un detail. Elle se lit par
 #: `localmesh_engine.__version__` (c'est ce que demande le formulaire de
 #: bogue), et c'est elle qu'un integrateur epingle. Le champ `version` de
-#: `/health`, dans l'application, est celle de l'application, pas celle-ci.
+#: `/health`, dans l'application, donne celle de l'application, pas celle-ci.
 #: `pyproject.toml` et `CITATION.cff` portent chacun la leur, ECRITE A LA
-#: MAIN : la monter ici sans eux les laisse en arriere (c'est arrive pendant
-#: toute la 1.1.0).
+#: MAIN : les trois se montent ensemble. (La 1.1.0 est partie en disant
+#: encore 1.0.0 aux trois endroits.)
 __version__ = "1.2.0"
 
 __all__ = ["Engine", "GenerateResult", "GenerateSettings", "JobCancelled",
