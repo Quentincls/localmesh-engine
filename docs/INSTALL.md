@@ -128,8 +128,11 @@ python -c "import cumesh, flex_gemm; print('extensions ok')"
 carries `import nvdiffrast.torch as dr` at module level. Do not install
 nvdiffrast. Its licence forbids commercial use, the UV rasterisation is
 rewritten in `uvraster.py`, and `leurre_nvdiffrast.py` registers a stand-in
-under that name so the import passes. `o_voxel` gets exercised in step 8,
-through the engine.
+under that name so the import passes. The same holds for `plyfile`, which
+`o_voxel` also imports at module level, for PLY files the engine never reads
+or writes: it is GPL-3.0, `leurre_plyfile.py` stands in for it, and step 4
+removes the real package. `o_voxel` gets exercised in step 8, through the
+engine.
 
 Third party Linux wheels for the same three extensions exist at
 [huggingface.co/siraxe/TRELLIS.2-4B_cuda_12.8.r12.8_wheels](https://huggingface.co/siraxe/TRELLIS.2-4B_cuda_12.8.r12.8_wheels)
@@ -141,11 +144,20 @@ Back in the root of the repository, `localmesh-engine/`:
 
 ```
 pip install -e .
+pip uninstall -y plyfile
 ```
 
-That installs the runtime dependencies and the `localmesh-engine` command. Your
-torch stays as it is: the pin reads `torch==2.8.0`, which `2.8.0+cu128` already
-satisfies.
+The first line installs the runtime dependencies and the `localmesh-engine`
+command. Your torch stays as it is: the pin reads `torch==2.8.0`, which
+`2.8.0+cu128` already satisfies.
+
+The second line removes one package again. `plyfile` is GPL-3.0, and
+`utils3d` and the `o_voxel` wheel both declare it, so pip installs it. The
+engine never reads or writes a PLY file, and `leurre_plyfile.py` stands in for
+it so that `o_voxel` still imports; but a real `plyfile` in your environment
+takes precedence over the stand-in and gets loaded. After the uninstall,
+`pip check` reports it missing; that is expected. A later `pip install` that
+resolves `utils3d` again brings it back, so run the uninstall again after one.
 
 Four of those dependencies are there for reasons the imports do not show, and
 they were found by installing this repository into an empty environment rather
@@ -253,6 +265,8 @@ carte : NVIDIA GeForce RTX 4060 Laptop GPU, 8.0 Go
    47.0%  cleaning the mesh
    65.0%  texturing
    90.0%  finishing
+   91.0%  projection de la photo
+    ...   projection de la photo, up to 95.0%
    96.0%  cleaning the atlas
    98.0%  rendering the thumbnail
   100.0%  done
@@ -260,18 +274,25 @@ C:\work\sortie\model_42.glb
 <faces> faces, <seconds> s, pic <peak> Go, graine 42
 ```
 
-Two of those lines depend on which bake path the run takes, so the list can be a
-line or two shorter. The last two are what success looks like: a
-`model_<seed>.glb` in the output folder, then the face count, the wall clock,
-the peak on the card and the seed.
+Some of those lines depend on which bake path the run takes, so the list can be
+a line or two shorter. `projection de la photo` runs on the default texturing
+path, and `cleaning the atlas` only on the `to_glb` fallback, so a run prints
+one or the other. The projection label is in French, like the code, and like
+every progress label it is part of the API. The last two lines are what
+success looks like: a `model_<seed>.glb` in the output folder, then the face
+count, the wall clock, the peak on the card and the seed. When the projection
+painted something, `model_<seed>.ai.glb` sits beside it: the same mesh with the
+texture as the model drew it, about the same size.
 
 How long to wait. The first run reads 8.1 GB of weights from disk before it
 starts, and the first generation also downloads the cutout model. Measured on
-the RTX 4060 Laptop with 8 GB, over six subjects: `standard` with four views
-takes 6 min 30 to 8 min 30, `high` 9 min 20 to 13 min. Texture is about 60
-percent of that time. `draft` is the shortest of the four tiers, and the check
-above uses it: a single photo at `--tier draft` is the fastest run the engine
-offers.
+the RTX 4060 Laptop with 8 GB, over six subjects, with engine 1.1.0:
+`standard` with four views takes 6 min 30 to 8 min 30, `high` 9 min 20 to
+13 min. Texture is about 60 percent of that time. Version 1.2.0 adds the
+photograph projection on top, 29 to 73 s in the seven runs logged on that card;
+those totals have not been measured again. `draft` is the shortest of the four
+tiers, and the check above uses it: a single photo at `--tier draft` is the
+fastest run the engine offers.
 
 Then the four views, once step 5 and the multi-view weights are in place:
 
@@ -291,11 +312,13 @@ under a name they were not measured under.
 | `ImportError: DLL load failed while importing ...` on Windows, or `undefined symbol: _ZN3c10...` on Linux | torch moved after the extensions were built | reinstall `torch==2.8.0` from the cu128 index, or rebuild the three extensions. Any `pip install` can upgrade torch as a side effect |
 | `ERROR: ... requires a different Python` when installing the package | the interpreter is not 3.12 | Python 3.12 exactly. natten and the three extensions are cp312 builds |
 | `ModuleNotFoundError: No module named 'nvdiffrast'` from a bare `import o_voxel` | o_voxel was imported outside the engine | import it through the engine, which registers the stand-in first. Do not install nvdiffrast |
+| `le vrai plyfile (GPL-3.0) est chargé` in the log | `plyfile` is installed in the environment, so the stand-in stepped aside and the GPL package was loaded | `pip uninstall -y plyfile`, step 4. Any later `pip install` that resolves `utils3d` brings it back |
+| `pip check` reports that `utils3d` or `o_voxel` requires `plyfile`, which is not installed | the uninstall of step 4 | nothing: expected. The engine never reads or writes a PLY file |
 | `LocalMesh Engine cannot find its runtime.` | `LOCALMESH_ROOT` is unset, or not visible to this process | step 6, then open a new shell so the variable is inherited |
 | `TRELLIS.2 weights not found at <path>` while the files are on disk | the root is off by one level, or the folder is not named exactly `TRELLIS.2-4B` | the path in the message is the one the engine reads. That folder must hold `ckpts_fp8/` and a descriptor named `pipeline.json` or `pipeline_fp8.json`; both names are accepted |
 | `IndexError: list index out of range` while loading models | the structure decoder is missing | put `ss_dec_conv3d_16l8_fp16.json` and `ss_dec_conv3d_16l8_fp16.safetensors` under `models/microsoft/TRELLIS-image-large/ckpts/`. With no local file the loader falls back to the Hub and splits an absolute path on `/`, which is where that IndexError comes from |
 | An error naming `models/facebook/dinov3-vitl16-pretrain-lvd1689m` | DINOv3 is not in place, or access is not granted yet | step 0, then docs/WEIGHTS.md. Both paths need it |
-| `The multi-view module is not installed. Missing: ...` | a four view weight file is absent AND the ported path was asked for by name (`chemin_mv="porte"`) | the message lists what is missing, file by file. docs/WEIGHTS.md. Unasked, missing weights do not raise: the run falls back to the older blend without saying so |
+| `The multi-view module is not installed. Missing: ...` | a four view weight file is absent AND the ported path was asked for by name (`chemin_mv="porte"`) | the message lists what is missing, file by file. docs/WEIGHTS.md. Unasked, missing weights do not raise: the run still succeeds on the older blend, and a note on the result says why |
 | `ModuleNotFoundError: No module named 'natten'` in the middle of a four view run | natten is not installed | step 5 |
 | `torch.OutOfMemoryError: CUDA out of memory` | the tier is too high for this card, or the card is shared | drop to `--tier standard` or `--tier draft`, and close anything else holding video memory. A 3D viewer open during a run takes its share of the same 8 GB |
 | `le palier max demande plus de mémoire que cette carte n'en a`, exit code 3 | `max` declares a 24 GB floor | use `draft`, `standard` or `high`. The check allows half a gigabyte of slack |

@@ -232,6 +232,11 @@ The vendored TRELLIS.2 tree can reach for two more, MoGe-2 and NAF, on the
 Pixal3D recipe alone, which none of the four tiers selects and the command line
 does not offer. `NOTICE` says where each comes from and under which licence.
 
+A third model is read but never fetched: `relief.py` reads the MoGe-2 weights
+(`Ruicheng/moge-2-vitl-normal`, under `models/Ruicheng/moge-2-vitl-normal/`)
+only if they are already on disk, and only when relief registration is turned
+on, which it is not by default. Without them that step is skipped.
+
 `config.py` points `HF_HOME` at `<LOCALMESH_ROOT>/models/hf` unless you set it
 yourself, so the download lands under the runtime root, and it turns off the
 symlinks `huggingface_hub` normally creates: making one on Windows requires

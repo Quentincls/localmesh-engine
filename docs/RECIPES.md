@@ -1,7 +1,9 @@
 # Recipes, frozen
 
 A tier is a contract, not a knob. The four recipes below are the ones frozen in
-engine 1.0.0.
+engine 1.2.0. Version 1.2.0 added the photograph projection after texturing and
+a token ceiling on the single photograph texture; the tier table itself did not
+move.
 
 Every value on this page was read back from the code, and the code is named
 next to it: `config.py` for the tiers, `pipeline.py` for the ceilings and the
@@ -89,10 +91,17 @@ start up, and it is those ceilings that govern, not the requested resolution.
 | Faces accepted for remeshing | 1,000,000 per GB, floor 4,000,000 | 8,000,000 | 24,000,000 | `pipeline.py` |
 | Remeshing cells | 1,000,000 per GB, no floor | 8,000,000 | 24,000,000 | `remaillage.py` |
 
-Upstream TRELLIS.2 ships a token cap of 49,152, a datacenter figure. Ours only
-bites from the 1536 cascade on: at 1024 the truncation loop never drops below
-the requested resolution, and the cost of that cascade is intrinsic. Below
-1536, the face and cell budgets are what govern.
+Upstream TRELLIS.2 ships a token cap of 49,152, a datacenter figure. On the
+shape, ours only bites from the 1536 cascade on: at 1024 the truncation loop
+never drops below the requested resolution, and the cost of that cascade is
+intrinsic. Below 1536, the face and cell budgets are what govern the shape.
+
+Since 1.2.0 the same ceiling also guards the texture from a single photograph.
+The texture tokens are counted on the CPU, before the shape encoder; above the
+ceiling the mesh is encoded at 512 and textured by the 512 texture model, four
+times fewer tokens for a slightly less fine texture. A leafy planter went from
+45 min to 363 s, peak 10.8 to 2.7 GB. Ordinary subjects stay below the ceiling
+and do not change. The four photograph texture is not covered by it.
 
 The cell budget counts the CELLS the surface crosses, not the input triangles.
 Measured 2 September 2026 over fifty two remeshes: the correlation between the
@@ -128,9 +137,10 @@ The four view path fires when the request carries, besides the front photo,
 the three sides named `droite`, `gauche` and `dos`. There is nothing to
 enable, and two things to have installed: the four view weights under
 `<root>/models/multivue`, and `natten`. Without the weights the job still
-succeeds, on the legacy blender, with no warning: `_multivue_porte` returns
-false and the other branch takes it. Without `natten` the ported path stops at
-the encoding step on an import error.
+succeeds, on the legacy blender: `_multivue_porte` returns false and the other
+branch takes it, and a note on the result says why, the weights are missing or
+the tier asks for a grid the ported path cannot produce. Without `natten` the
+ported path stops at the encoding step on an import error.
 
 It is measured at four views, not two or three: the command line refuses
 incomplete sets rather than returning an object whose value nobody knows.
@@ -173,6 +183,39 @@ The legacy blender has one value of its own, `blend_temperature`, default 4.0 in
 on a bench subject, 4 September 2026, 4.0 against the 2.0 inherited from the
 ComfyUI node gives sharper detail for 5 % more time.
 
+### The four photograph texture stays averaged
+
+The texture stage runs once per view and averages the four predictions at
+every step, through `remaillage.texturer_multivue`, as in 1.1.0
+(`pipeline.TEXTURE_QUATRE_VUES = "moyenne"`).
+
+A single conditioning sequence was measured against it during 1.2.0. The front
+and the three sides go to `remaillage.texturer` as one list, `get_cond`
+concatenates their tokens, and the texture model follows one trajectory with
+nothing averaged, at 512 per view (`pipeline.COND_QUATRE_VUES`), so four views
+cost the tokens of one view at 1024. Measured 22 September 2026 on one frozen
+mesh per subject, fine detail of the atlas: samurai 63.7 to 75.3, cassette
+38.7 to 62.7, motorcycle 57.7 to 76.0, texture step 272 s to 117 s, peak 4.70
+to 4.59 GB.
+
+It did not survive a blind comparison. Seven subjects, same frozen shape, 84
+image pairs seen three times: averaged 150, single sequence 83, equal 19. The
+averaged path won on the body subject (36 to 0), the head, both traffic lights
+and the samurai; the single sequence on the motorcycle (25 to 9); the cassette
+was a tie. Atlas detail measures contrast, not correctness: the single
+sequence put a dark stain on a red traffic light lens that is on neither the
+photograph nor the averaged output. `LUMENGEN_TEXTURE_4VUES=ensemble` selects
+it, for measurement; `LUMENGEN_COND_TEXTURE` overrides its 512.
+
+Known and not fixed: the averaged path weights each view by the position of
+the texel's cell, each axis divided by the grid, and no normal is read. On a
+flat subject the thin axis spans a fraction of the grid (12.2 % on a
+cassette), so the profile views outvote the front on the large face. It is
+invisible on cubic subjects and matters on flat ones, which are the ones that
+carry text; the projection covers most of it on photographed faces.
+`LUMENGEN_MV_TEX_ISO=1` normalises each axis on the subject instead, validated
+on CPU only.
+
 ### The four views share one crop
 
 A single photo is cropped on the largest dimension of the subject. On an
@@ -192,6 +235,43 @@ instead of 96 %, and the models were trained on subjects that fill it. That is
 cheaper than the scale disagreement it replaces. `cadre_mv="separe"` on the
 request puts the per view crop back, for the bench.
 
+## Photograph projection
+
+After finishing, `projection.projeter` copies the photographs' own pixels onto
+the texels they see. It runs on the `texture_mesh` path only, when
+`projection_texture` is true, which is the default. Its frozen values, in
+`projection.Reglages`:
+
+| Value | Setting | What it decides |
+|---|---|---|
+| `cos_mini` | 0.18 | below this cosine between normal and view axis a photograph is not read |
+| `erosion` | 3 px | the soft edge of the matte removed before reading |
+| `marge_falaise` | 5 texels | margin kept away from depth edges |
+| `saut_falaise` | 0.012 | depth jump between neighbours, as a fraction of the subject, that makes an edge |
+| `tolerance_uv_texels` | 1.5 | how close the rendered UV must be for a texel to be its own |
+| `harmonie`, `appui_harmonie` | on, 5 | colour of the unseen surface pulled towards the photographed one |
+| `pente_niveau` | 0.003 | at equal silhouette overlap, the level camera is preferred |
+| `r_cal`, `r_fin` | 384, 768 | silhouette resolutions of the camera fit |
+| `azimut_libre` | 180° | with one photograph, how far either side of the front its azimuth is searched: the full turn |
+| `roulis_libre`, `roulis_libre_mv` | 20°, 3° | how far camera roll is searched, with one photograph and with four |
+| `melange` | `doux` | a photograph's share is its weight to the power 0.35, so at grazing angles the drawn texture shows through |
+| `fondu`, `fondu_multivue` | 0.015, 0 | feather between photograph and drawing, as a share of the object, measured on the surface; one photograph only |
+| `gouttieres_texels` | 8 | UV gutters refilled from the final colour after projection |
+| `recalage_relief` | off | fine registration by surface normals (`relief.py`, MoGe-2); lost a blind comparison on fourteen subjects |
+
+With four photographs the azimuths are the ones measured for the shape, never
+measured twice; with no measurement they are the nominal quarter turns,
+profiles exchanged when the laterality says so. With one photograph the
+azimuth is searched over the full turn against the silhouette, because a
+generated object sometimes comes out turned a quarter. One elevation is shared
+by the views. Which way the object faces is checked before anything is
+painted, and it is never mirrored. A failure of this step keeps the drawn
+texture and adds a note; it never fails the job.
+
+Each run that painted something also writes `model_<seed>.ai.glb` next to
+`model_<seed>.glb`: the same mesh, orientation, scale and material, with the
+texture as the model drew it. `GenerateResult.glb_ai` names it.
+
 ## What the engine writes next to the weights
 
 At load time the engine reads `pipeline.json` or `pipeline_fp8.json` from the
@@ -209,8 +289,11 @@ renaming one is a version change. The main route, in order: `loading models`,
 `models ready` (both from the model load, rescaled into the first 5 percent of
 the bar), `reading reference`, `cutting out the subject`, `checking the two
 profiles` (four views only), `generating shape`, `cleaning the mesh`,
-`texturing`, `baking PBR materials`, `finishing`, `cleaning the atlas`,
-`rendering the thumbnail`, `done`. Two stages add sub labels of their own: the
+`texturing`, `baking PBR materials`, `finishing`, `projection de la photo`
+(when the projection runs, from 91 to 95 percent), `cleaning the atlas` (on the
+`to_glb` fallback only), `rendering the thumbnail`, `done`. The projection
+label is the one label in French, like the code it comes from; it is part of
+the contract like the others. Two stages add sub labels of their own: the
 ported four view path, in `multivue/chemin.py`, sends `encoding views`,
 `merging views`, `encoding views` again for the fine stage, then `generating
 shape`; remeshing, in `remaillage.py`, sends `filling holes`, `remeshing`,
@@ -239,11 +322,27 @@ installations that predate the name.
 | `LUMENGEN_ECART_VUES_MAX` | 6.0 | percent of height gap above which the result warns |
 | `LUMENGEN_TRACE_MAILLAGE` | unset | `=1` writes `avant_texture.glb`, the mesh as it enters texturing |
 | `LUMENGEN_FIX_TILED_MESH` | 1 | `=0` restores the upstream tile extractor, without the one owner per quad rule |
+| `LUMENGEN_TEXTURE_4VUES` | `moyenne` | `ensemble` reads the four photographs as one conditioning sequence, at 512 per view |
+| `LUMENGEN_COND_TEXTURE` | unset | conditioning resolution of the texture stage; on `ensemble` it overrides the 512 per view |
+| `LUMENGEN_BANC_MELANGE_TEX` | unset, 2.0 | blend temperature of the averaged four view texture path |
+| `LUMENGEN_MV_TEX_ISO` | unset | `=1` normalises the view vote of that path on the subject extent |
+| `LUMENGEN_TRACE_PROJECTION` | unset | `=1` writes `avant_projection.glb`, the result before the photographs were projected |
+| `LUMENGEN_BOUCHAGE_PERIMETRE` | 1.0 | largest perimeter of a hole closed before remeshing, on an object inside [-0.5, 0.5] |
+| `LUMENGEN_FERMETURE_PERIMETRE` | 1.0 | largest perimeter of a boundary loop closed after remeshing |
+| `LUMENGEN_RETRAIT_LAMES` | 1 | `=0` keeps the blades the closing pass leaves |
+| `LUMENGEN_LAME_PART` | 0.05 | a blade's longest edge, as a share of the object diagonal |
+| `LUMENGEN_LAME_ALLONGEMENT` | 8.0 | a blade's elongation, longest edge over shortest |
+| `LUMENGEN_PLAFOND_CELLULES` | per card | overrides the cell ceiling of the fine four view pass, `max(8000, 3000 × GB)` |
+| `LUMENGEN_MV_SEUIL_DESACCORD` | 3.0 | the old height gap threshold of the view weighting; nothing reads it since the force went to 0 |
+| `LUMENGEN_BANC_DEPOT` | unset | a folder: remeshing writes its intermediate meshes there, as `.npz` |
+| `LUMENGEN_BANC_ARRET` | unset | with `LUMENGEN_BANC_DEPOT`, stops the job after the mesh of that label (`avant-debris`, `avant-fermeture`, `apres-fermeture`) |
 
 Four more knobs live on the request itself, so a bench can change them
 without restarting the engine: `chemin_mv` (`auto`, `porte`, `ancien`),
 `angles_mv` (`auto`, `nominaux`), `cadre_mv` (`auto`, `separe`) and `force_mv`
 (`None` for the measured rule, a number to impose the view weighting force).
+`projection_texture` is a setting rather than a bench knob: `False` keeps the
+drawn texture alone.
 
 ## Changing a recipe
 
