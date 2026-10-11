@@ -19,7 +19,7 @@ _vendu_trellis2/
     MIT License, Copyright (c) Microsoft Corporation.
     Full text in _vendu_trellis2/LICENSE.
 
-    THIS FOLDER HAS FOUR AUTHORS, NOT ONE. Of its 86 Python files, 81 come
+    THIS FOLDER HAS FOUR AUTHORS, NOT ONE. Of its 85 Python files, 80 come
     from Microsoft, 3 from Tencent, 1 from the ComfyUI node named below, and 1
     is ours. File by file origins are in _vendu_trellis2/PROVENANCE.md.
 
@@ -61,6 +61,22 @@ multivue/champ/
     Full text in multivue/champ/LICENSE. multivue/champ/PROVENANCE.json lists
     every file of that revision we read, with its upstream URL and its
     SHA-256; six of them are kept here.
+
+_vendu_moge/
+    MoGe (Monocular Geometry Estimation), Microsoft Research.
+    https://github.com/microsoft/MoGe
+    MIT License, Copyright (c) Microsoft Corporation.
+    Full text in _vendu_moge/LICENSE, origin and use in its PROVENANCE.md.
+
+    Its model/dinov2/ subtree is DINOv2, Meta Platforms, Inc. and affiliates,
+    carried by MoGe. Apache License 2.0, full text in
+    _vendu_moge/model/dinov2/LICENSE. Its files cite their own sources (DINO,
+    timm).
+
+    Copied unmodified. It serves one optional step, relief.py, which registers
+    each photograph on the mesh by its surface normals before projection. That
+    step is off by default and never downloads its weights; see "Model
+    weights" below.
 
 Rewritten rather than copied
     multivue/champ/layers/rope.py is ours and is Apache-2.0. The upstream file
@@ -110,7 +126,7 @@ pyproject.toml. Each keeps its own licence; none is redistributed here.
     scikit-image             marching cubes for the structure preview
     einops                   tensor reshapes in the vendored code
     tqdm                     console progress during sampling and baking
-    easydict                 the return type of the flow samplers
+    easydict                 the return type of the flow samplers (LGPL-3.0)
     nvidia-ml-py             reads what the card holds, past the allocator
     utils3d                  imported by the vendored TRELLIS.2 tree; installed
                              from git at a pinned revision, see pyproject.toml
@@ -174,14 +190,26 @@ Libraries this engine does not use, on purpose
     the vendored mesh class was deleted from this repository on 10 September
     2026, not merely left unused.
 
-Two GPL-3.0 names left in the vendored tree
+plyfile
+    plyfile (dranjan/python-plyfile) is GPL-3.0. The o_voxel wheel imports it
+    at module level, for PLY input and output that this engine never performs.
+    leurre_plyfile.py registers a stand-in under that name, right after the
+    nvdiffrast one; the objects inside it raise and say why if anything ever
+    calls them. No plyfile code is included or distributed here.
+    _vendu_trellis2/trellis2/utils/mesh_utils.py, the only vendored file that
+    imported plyfile, and which nothing imported, was deleted in 1.2.0.
+
+    utils3d and the o_voxel wheel still declare plyfile as a dependency, so
+    pip installs it. A real plyfile installed outside LOCALMESH_ROOT takes
+    precedence over the stand-in, and the engine writes a warning to its log
+    when it is loaded. docs/INSTALL.md, step 4, removes it with
+    pip uninstall -y plyfile.
+
+One GPL-3.0 name left in the vendored tree
     _vendu_trellis2/trellis2/pipelines/trellis2_image_to_3d.py names mmgp
-    (deepbeepmeep/mmgp) inside a try/except, and
-    _vendu_trellis2/trellis2/utils/mesh_utils.py imports plyfile
-    (dranjan/python-plyfile) at module level. Neither package is installed or
-    redistributed by this repository, and nothing in the package imports
-    mesh_utils. If you install either one, its own licence applies to what you
-    then distribute.
+    (deepbeepmeep/mmgp) inside a try/except. It is not installed or
+    redistributed by this repository. If you install it, its own licence
+    applies to what you then distribute.
 
 --------------------------------------------------------------------------------
 What the engine downloads by itself
@@ -270,6 +298,15 @@ Depth Anything 3 (DA3-BASE), the shot angles
     cameras/source/src and cameras/deps, rather than in the environment, so
     installing this module cannot disturb an existing installation. They are
     not redistributed here and keep their own licences.
+
+MoGe-2 ViT-L normal, optional relief registration
+    https://huggingface.co/Ruicheng/moge-2-vitl-normal
+    MIT License, according to its model card.
+
+    Read by relief.py, through the code in _vendu_moge/, only if the weights
+    are already on disk and only when relief registration is turned on, which
+    it is not by default. The engine never downloads them; without them that
+    step is skipped.
 
 DINOv3 ViT-L/16, image encoder
     https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m

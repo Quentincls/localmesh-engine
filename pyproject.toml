@@ -23,7 +23,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "localmesh-engine"
-version = "1.0.0"
+version = "1.2.0"
 description = "Photographs to a textured mesh, on one NVIDIA card, offline. Built on TRELLIS.2, with a four view path."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -99,5 +99,8 @@ localmesh_engine = [
   "_vendu_trellis2/PROVENANCE.md",
   "_vendu_o_voxel/LICENSE",
   "_vendu_o_voxel/PROVENANCE.md",
+  "_vendu_moge/LICENSE",
+  "_vendu_moge/PROVENANCE.md",
+  "_vendu_moge/model/dinov2/LICENSE",
   "banc/sujets/*.md",
 ]
