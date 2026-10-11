@@ -31,7 +31,7 @@ something, the run also keeps the drawn texture, as `model_<seed>.ai.glb`.
 `--no-projection` turns the projection off. Floaters are removed in one batched
 pass (170 s to 13 s on one subject), and a very heavy subject textured from a
 single photograph no longer overflows an 8 GB card. Details and measurements in
-the [changelog](CHANGELOG.md#v120--12-october-2026).
+the [changelog](CHANGELOG.md#v120--11-october-2026).
 
 [What it adds](#what-this-adds-to-trellis2) &nbsp;&middot;&nbsp;
 [Results](#results) &nbsp;&middot;&nbsp;
@@ -102,7 +102,7 @@ the drawn texture stays, its colour pulled towards the photographed surface
 next to it. On a cassette generated from four photographs, 59 % of the surface
 takes a photograph pixel and the printed label reads as on the photographs.
 `--no-projection` keeps the drawn texture alone, the right choice for a
-subject whose reconstructed shape departs from the photograph at some part.
+subject whose reconstructed shape departs from the photograph in places.
 
 **Debris is removed by position, not by size.** A component leaves only if it
 is both small against the largest component and detached from it, distance
@@ -381,9 +381,11 @@ No weights are stored in this git repository. The FP8 multi-view conversions
 we produced are served from
 [huggingface.co/Qtn-Cls/LocalMeshEngine](https://huggingface.co/Qtn-Cls/LocalMeshEngine)
 and are conversions of the official BF16 Pixal3D weights: weight RMSE 0.025 to
-0.026 against the source, projection probe 0.027. Every other weight set is
-downloaded from its author and keeps its own licence, listed with its address
-in [NOTICE](NOTICE).
+0.026 against the source, projection probe 0.027. The other sets the engine
+needs, except DINOv3 and BiRefNet_HR, are rehosted unchanged in the same
+repository, so that one download fetches them all
+([docs/WEIGHTS.md](docs/WEIGHTS.md#the-short-way)). Each keeps its own licence,
+listed with its author's address in [NOTICE](NOTICE).
 
 **Built with DINOv3.** Using the DINOv3 image encoder carries conditions from
 Meta: anyone redistributing those weights ships a copy of the agreement with

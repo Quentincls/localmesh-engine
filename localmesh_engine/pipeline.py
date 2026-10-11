@@ -135,7 +135,9 @@ def _melange_texture():
     return MELANGE_TEXTURE
 
 
-#: LA TEXTURE A QUATRE PHOTOS : LES QUATRE D'UN SEUL TENANT.
+#: LA TEXTURE A QUATRE PHOTOS : LA MOYENNE DES QUATRE, PAR DEFAUT.
+#: (Le « seul tenant » essaye du 22 au 24 septembre 2026 reste derriere
+#: `LUMENGEN_TEXTURE_4VUES=ensemble`, pour comparer. L'histoire suit.)
 #:
 #: Jusqu'au 23 septembre 2026, quatre photos passaient par `texturer_multivue`,
 #: qui fait tourner le DiT de texture QUATRE FOIS par pas de debruitage — une
@@ -184,7 +186,7 @@ def _texture_quatre_vues():
         return regle
     if regle:
         log.warning("LUMENGEN_TEXTURE_4VUES illisible (%r), quatre vues "
-                    "d'un seul tenant", regle)
+                    "moyennees (le defaut)", regle)
     return TEXTURE_QUATRE_VUES
 
 
@@ -1391,8 +1393,8 @@ class Engine:
         timer.mark("sample")
 
         if uses_pixal:
-            # PIXAL3D GARDE L'ANCIEN CHEMIN, et c'est definitif. Il reprojette
-            # les pixels de la photo dans le volume ; `texture_mesh`
+            # PIXAL3D GARDE L'ANCIEN CHEMIN, et c'est definitif. Il projette
+            # les traits de la photo dans le volume ; `texture_mesh`
             # regenererait ce qu'il vient d'aller chercher. Le noeud du banc
             # le refuse d'ailleurs explicitement.
             #
@@ -1760,9 +1762,10 @@ class Engine:
         try:
             with vrammetre.Metre() as metre:
                 if vues and _texture_quatre_vues() == "moyenne":
-                    # L'ANCIEN CHEMIN, garde pour comparer : quatre
-                    # predictions par pas, moyennees. Voir TEXTURE_QUATRE_VUES
-                    # pour ce qu'il coute.
+                    # LE CHEMIN PAR DEFAUT A QUATRE PHOTOS depuis le jury a
+                    # l'aveugle du 24 septembre 2026 : quatre predictions par
+                    # pas, moyennees. Voir TEXTURE_QUATRE_VUES pour ce qu'il
+                    # coute et pourquoi il a gagne.
                     #
                     # `texture_mesh_multiview` pondere chaque texel par la
                     # POSITION de sa cellule — aucune normale n'est lue,
@@ -1778,8 +1781,9 @@ class Engine:
                         guidance=guidage_texture,
                         jalon=step)
                 else:
-                    # UNE PHOTO, OU QUATRE D'UN SEUL TENANT. Avec quatre
-                    # photos, la face et ses trois voisines forment une seule
+                    # UNE PHOTO ; OU QUATRE D'UN SEUL TENANT, mais seulement
+                    # sous LUMENGEN_TEXTURE_4VUES=ensemble, pour comparer. Avec
+                    # quatre photos, la face et ses trois voisines forment une seule
                     # sequence de conditionnement : le DiT tourne une fois par
                     # pas. L'ordre est celui du banc qui l'a mesure ; il est
                     # sans effet sur le resultat, l'attention croisee ne

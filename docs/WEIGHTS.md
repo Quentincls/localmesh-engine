@@ -188,10 +188,11 @@ weights: see step 5 of [INSTALL.md](INSTALL.md).
 This one reads the shooting angle of each photograph and decides which side each
 profile actually shows, rather than trusting the slot it was dropped into.
 **It came down with the four view weights, and there is nothing to do.** The
-`hf download Qtn-Cls/LocalMeshEngine` above carries `cameras/` whole: the
-weights, the config, the upstream source tree and the three pure Python
-packages it needs, 203 files, repackaged under the same Apache-2.0 as the
-original. They sit beside the weights rather than in your environment, so
+`hf download Qtn-Cls/LocalMeshEngine` above carries `cameras/` whole, 203
+files: the weights, the config and the upstream source tree, all Apache-2.0,
+and the three pure Python packages that code needs, unchanged and each under
+its own licence (omegaconf and antlr4-python3-runtime BSD-3-Clause, addict
+MIT). They sit beside the weights rather than in your environment, so
 installing this engine cannot disturb another project.
 
 If you would rather assemble it from the sources yourself, the pieces are:

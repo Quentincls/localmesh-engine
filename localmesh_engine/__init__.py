@@ -48,9 +48,13 @@ eux, gardent chacun leur licence et ne sont pas redistribués. Voir NOTICE.
 
 #: LA VERSION DU MOTEUR, ET ELLE COMPTE.
 #: Le contrat avec l'application est une version epinglee : une recette qui
-#: change est un changement de version, pas un detail. Elle est lue par
-#: `pyproject.toml`, annoncee sur `/health`, et c'est elle qu'un integrateur
-#: epingle.
+#: change est un changement de version, pas un detail. Elle se lit par
+#: `localmesh_engine.__version__` (c'est ce que demande le formulaire de
+#: bogue), et c'est elle qu'un integrateur epingle. Le champ `version` de
+#: `/health`, dans l'application, est celle de l'application, pas celle-ci.
+#: `pyproject.toml` et `CITATION.cff` portent chacun la leur, ECRITE A LA
+#: MAIN : la monter ici sans eux les laisse en arriere (c'est arrive pendant
+#: toute la 1.1.0).
 __version__ = "1.2.0"
 
 __all__ = ["Engine", "GenerateResult", "GenerateSettings", "JobCancelled",

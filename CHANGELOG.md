@@ -7,7 +7,7 @@ speeds and there is no correspondence to read into them.
 Entries say what changed in the output or in the failure, and what it cost.
 Refactors are not entries.
 
-## v1.2.0 — 12 October 2026
+## v1.2.0 — 11 October 2026
 
 ### The photographs' own pixels on the texture
 
@@ -25,12 +25,16 @@ How a texel is assigned:
   azimuths are the ones Depth Anything 3 measured for the shape, never measured
   twice; without that measurement, the nominal quarter turns, profiles
   exchanged when the laterality check says so. With one photograph the azimuth
-  is searched over the full turn against the silhouette, because a generated
-  object sometimes comes out turned (silhouette agreement on a phone
-  0.77 → 0.88, on a knife 0.42 → 0.79; seven other subjects keep their angle
-  exactly). One elevation is fitted and shared by all views. Camera roll is
-  searched up to 20° with one photograph, 3° with four. Which way the object
-  faces is checked before anything is painted, and it is never mirrored.
+  is searched against the silhouette instead of assumed frontal, because the
+  photograph may have been taken from three quarters (silhouette agreement
+  against the frontal pose: a bench 0.58 → 0.90, a knife 0.42 → 0.79, a statue
+  0.79 → 0.88). The search covers the full turn, because a generated object
+  sometimes comes out turned a quarter: against a search limited to ±60°, a
+  phone goes from 0.77 to 0.88, and the seven other single photograph
+  subjects, those three included, keep exactly their angle. One elevation is
+  fitted and shared by all views. Camera roll is searched up to 20° with one
+  photograph, 3° with four. Which way the object faces is checked before
+  anything is painted, and it is never mirrored.
 - A texel is visible from a photograph when a render of the UV coordinates
   from that camera returns the texel itself at its pixel, within 1.5 texels,
   so no depth tolerance is involved. Texels within 5 texels of a depth edge,
@@ -54,10 +58,10 @@ How a texel is assigned:
 Share of the surface that takes a photograph pixel, four photographs:
 cassette 59 %, samurai 34 %, motorcycle 32 %.
 
-What it costs: 29 to 73 s per job in the seven runs logged on an RTX 4060
-Laptop with 8 GB between 24 September and 11 October, 51 to 67 s of them with
-four photographs, most of it spent fitting the cameras. Peak 3.3 GB, below the
-texture stage, measured on one subject.
+What it costs: 29 to 73 s per job over the seven runs logged on an RTX 4060
+Laptop with 8 GB between 24 September and 11 October, 51 to 67 s for the four
+of them made from four photographs, most of it spent fitting the cameras. Peak
+3.3 GB, below the texture stage, measured on one subject.
 
 How it was judged: twelve subjects reviewed by eye, not blind. Nine clearly
 better, two slightly better, one mixed, none worse. No blind comparison of
