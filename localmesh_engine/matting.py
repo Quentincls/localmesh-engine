@@ -200,8 +200,7 @@ class Matter:
             cote = int(max(sujet[3] - sujet[1], 1) * facteur * (1 + _PADDING))
             sortie[role] = self._recadrer(im, a, sujet, ts, cote)
         if facteur > 1.001:
-            log.info("cadre commun aux vues : facteur %.3f "
-                     "(sujet allonge, les echelles sont remises d'accord)",
+            log.info("Matched the crop scales of the views for an elongated subject: factor %.3f",
                      facteur)
         return sortie
 

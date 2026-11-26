@@ -664,7 +664,7 @@ def _azimuts(prepa):
                                          in prepa.items()})
         mesure = cotes.azimuts_mesures(rapport)
     except Exception as exc:                                    # noqa: BLE001
-        log.info("projection : azimuts non mesurables (%s), angles ronds", exc)
+        log.info("Projection: could not measure camera azimuths (%s). Using nominal angles.", exc)
         return None
     if not mesure:
         return None
@@ -825,7 +825,7 @@ def _recalage_par_relief(V, F, prepa, yaws, poses, elev, rapport: Rapport):
     """Un champ de déplacements par vue (voir `relief.py`), ou None."""
     from . import relief
     if not relief.disponible():
-        log.info("projection : MoGe-2 absent, pas de recalage par le relief")
+        log.info("Projection: MoGe-2 is unavailable. Skipping depth alignment.")
         return None
     rr = relief.ReglagesRelief()
     R = rr.cote
@@ -885,11 +885,11 @@ def projeter(maillage, photos=None, *, preparees=None, azimuts=None,
     rapport = Rapport()
     tex = _texture_de(maillage)
     if tex is None or getattr(maillage.visual, "uv", None) is None:
-        raise ValueError("maillage sans texture ni UV : rien à projeter")
+        raise ValueError("Photo projection requires a mesh with a texture and UV coordinates")
     jalon = jalon or (lambda _f: None)
     if preparees is None:
         if not photos or photos.get("face") is None:
-            raise ValueError("la photo de face est obligatoire")
+            raise ValueError("Photo projection requires a front photo")
         photos = {r: photos[r] for r in ROLES
                   if r in photos and photos[r] is not None}
         prepa = _preparer(photos)
@@ -898,7 +898,7 @@ def projeter(maillage, photos=None, *, preparees=None, azimuts=None,
                  if r in preparees and preparees[r] is not None}
     prepa = {r: v for r, v in prepa.items() if v[1] is not None}
     if "face" not in prepa:
-        raise ValueError("la photo de face n'a pas de détourage exploitable")
+        raise ValueError("The front photo did not produce a usable cutout")
     jalon(0.05)
 
     dev = "cuda"
@@ -924,7 +924,7 @@ def projeter(maillage, photos=None, *, preparees=None, azimuts=None,
         except Exception as exc:                              # noqa: BLE001
             # UN RECALAGE FIN QUI ÉCHOUE N'EST PAS UNE PROJECTION QUI ÉCHOUE :
             # la caméra rigide est là, on s'en contente et on le dit.
-            log.warning("projection : recalage par le relief sauté (%s)", exc)
+            log.warning("Projection: depth alignment skipped (%s)", exc)
             deformations = None
         jalon(0.48)
 
@@ -1052,12 +1052,14 @@ def projeter(maillage, photos=None, *, preparees=None, azimuts=None,
     del V, F, UV, N, P, Nt, UVt, meilleur, couleur, peint, alpha, base, out, masque
     torch.cuda.empty_cache()
     rapport.duree = time.time() - t0
-    log.info("projection : %.1f %% de la surface en vraie photo, face %s "
-             "(%s)%s, azimut de la photo %+.0f°, élévation %+.1f°, %d vue(s), "
-             "%.0f s (dont calage %.0f s)",
-             rapport.couverture, "devant" if rapport.sens_face == 0 else "derrière",
-             rapport.sens_decide_par,
-             ", profils échangés" if rapport.cotes_echanges else "",
+    method = {"défaut": "default", "apparence": "appearance"}.get(
+        rapport.sens_decide_par, rapport.sens_decide_par)
+    log.info("Projection: %.1f%% photo coverage, facing %s (%s)%s, "
+             "photo azimuth %+.0f deg, elevation %+.1f deg, %d views, "
+             "%.0f s total (%.0f s alignment)",
+             rapport.couverture, "forward" if rapport.sens_face == 0 else "backward",
+             method,
+             ", side views swapped" if rapport.cotes_echanges else "",
              rapport.azimut_photo, rapport.elevation, len(prepa),
              rapport.duree, rapport.duree_calage)
     return rapport

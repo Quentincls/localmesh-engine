@@ -146,13 +146,13 @@ def _bords_ouverts(geom) -> bool:
         bords = int((comptes == 1).sum())
         total = int(len(comptes))
         ouvert = total > 0 and bords > total * _BORD_OUVERT_MINI
-        log.info("materiau : %d aretes de bord sur %d (%.3f %%), %s",
+        log.info("Material: %d of %d boundary edges (%.3f%%), %s",
                  bords, total, 100.0 * bords / max(total, 1),
-                 "double face" if ouvert else "simple face")
+                 "double-sided" if ouvert else "single-sided")
         return ouvert
     except Exception as exc:                                     # noqa: BLE001
         # Une surface qu on ne sait pas mesurer garde l ancien comportement.
-        log.warning("aretes de bord non mesurees (%s) : simple face", exc)
+        log.warning("Could not measure boundary edges (%s). Using a single-sided material.", exc)
         return False
 
 
@@ -223,6 +223,7 @@ def apply_alpha_mode(glb, requested: Optional[str] = None) -> Optional[MaterialR
             mode=mode, detected=detected, forced=forced,
             non_opaque_ratio=non_opaque, hard_ratio=hard, reason=reason,
         )
-        log.info("material: %s (detected %s) - %s", mode, detected, reason)
+        log.info("Material: %s (detected %s, %.2f%% non-opaque texels)",
+                 mode, detected, non_opaque * 100)
 
     return report

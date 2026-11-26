@@ -34,6 +34,7 @@ import numpy as np
 import torch
 
 from . import config
+from .progress import english_stage
 
 log = logging.getLogger("localmesh_engine.remaillage")
 
@@ -244,21 +245,18 @@ def _retirer_debris(v, f, *, ratio_aire: float, distance_mini: float,
         decolle[idx] = d[debuts[idx] + (comptes[idx] - 1) // 2] > seuil
         del bvh, sel, lab, pts, d, o, comptes, debuts, idx
     except Exception as exc:                                  # noqa: BLE001
-        log.warning("distance au corps non mesurable (%s) : aucun débris "
-                    "retiré, l'objet passe entier", exc)
+        log.warning("Could not measure distance to the main mesh (%s). Keeping all pieces.", exc)
         return v, f
 
     condamnes = petit & decolle
     if not bool(condamnes.any()):
-        log.info("débris : %d petits morceaux, tous posés sur la coque, "
-                 "tous gardés", int(petit.sum()))
+        log.info("Kept all %d small pieces because they touch the main mesh", int(petit.sum()))
         return v, f
 
     part = float(aire[condamnes].sum()) / total
     if part > part_maxi:
-        log.info("débris : le filtre voulait retirer %.1f %% de l'aire "
-                 "(%d morceaux) — au-dessus du plafond, rien n'est retiré",
-                 100 * part, int(condamnes.sum()))
+        log.info("Kept all pieces because removing %d would exceed the area limit (%.1f%% of the mesh)",
+                 int(condamnes.sum()), 100 * part)
         if notes is not None:
             notes.append("Objet fait de beaucoup de petites pièces : elles "
                          "ont toutes été gardées.")
@@ -274,8 +272,8 @@ def _retirer_debris(v, f, *, ratio_aire: float, distance_mini: float,
     cm.remove_unreferenced_vertices()
     v2, f2 = cm.read()
     del cm
-    log.info("débris : %d morceaux détachés retirés (%d faces, %.2f %% de "
-             "l'aire) ; %d petits morceaux posés sur la coque gardés",
+    log.info("Removed %d detached pieces (%d faces, %.2f%% of the surface area). "
+             "Kept %d small pieces touching the main mesh.",
              int(condamnes.sum()), avant - int(f2.shape[0]), 100 * part,
              int((petit & ~decolle).sum()))
     return v2, f2.int()
@@ -298,11 +296,11 @@ def _deposer_banc(etiquette: str, v, fc) -> None:
         np.savez_compressed(chemin,
                             sommets=v.detach().cpu().numpy(),
                             faces=fc.detach().cpu().numpy())
-        log.info("banc : %s depose (%d faces)", etiquette, int(fc.shape[0]))
+        log.info("Benchmark: saved %s (%d faces)", etiquette, int(fc.shape[0]))
     except Exception as exc:                                  # noqa: BLE001
-        log.warning("banc : depot %s impossible (%s)", etiquette, exc)
+        log.warning("Benchmark: could not save %s (%s)", etiquette, exc)
     if os.environ.get("LUMENGEN_BANC_ARRET") == etiquette:
-        raise SystemExit("banc : arret demande apres %s" % etiquette)
+        raise SystemExit("Benchmark: stop requested after %s" % etiquette)
 
 
 def _retirer_lames(v, fc):
@@ -331,7 +329,7 @@ def _retirer_lames(v, fc):
     combien = int(lame.sum())
     if not combien:
         return v, fc
-    log.info("retrait des lames : %d triangles sur %d",
+    log.info("Removed %d of %d triangles from thin artifacts",
              combien, int(fc.shape[0]))
     return v, fc[~lame].contiguous()
 
@@ -378,13 +376,13 @@ def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
         # compte a la resolution demandee ; on le ramene a 1024 pour parler
         # la langue de la table.
         cellules_1024 = int(_cellules_estimees(mesh.vertices, 1024))
-        log.info("remaillage : %d faces en entree, ~%d cellules a 1024, "
-                 "grille demandee %d, budget %d",
+        log.info("Remeshing: %d input faces, ~%d cells at 1024, "
+                 "requested grid %d, cell budget %d",
                  entree, cellules_1024, dc_resolution, _budget_cellules())
         grille = _grille_tenable(cellules_1024, dc_resolution)
         if grille < dc_resolution:
-            log.info("contourage ramene a %d : ~%d cellules a 1024, la grille "
-                     "%d ne tient pas sur cette carte", grille, cellules_1024,
+            log.info("Reduced contour grid to %d: ~%d cells at 1024 would "
+                     "exceed GPU capacity for grid %d", grille, cellules_1024,
                      dc_resolution)
             dc_resolution = grille
             if notes is not None:
@@ -408,8 +406,8 @@ def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
         )
         purger()
         if int(f.shape[0]) == 0:
-            raise RuntimeError("le remaillage n'a produit aucune face")
-        log.info("remaillage DC %d : %d sommets, %d faces",
+            raise RuntimeError("Remeshing produced no faces")
+        log.info("Dual contouring at %d: %d vertices, %d faces",
                  dc_resolution, int(v.shape[0]), int(f.shape[0]))
 
         # --- 3. RETRAIT DES DÉBRIS --------------------------------------
@@ -441,7 +439,7 @@ def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
             jalon("decimating", 0.60)
         mesh.simplify_with_cumesh(target=cible_triangles, verbose=False)
         purger()
-        log.info("après décimation : %d faces", int(mesh.faces.shape[0]))
+        log.info("After decimation: %d faces", int(mesh.faces.shape[0]))
 
         # --- 5. SECOND BOUCHAGE, ET C EST LUI QUI FERME LES YEUX ---------
         #
@@ -543,7 +541,7 @@ def nettoyer(mesh, *, dc_resolution: int, cible_triangles: int,
         # rester tenu. Sort sec si le maillage est deja sous la cible.
         mesh.simplify_with_cumesh(target=cible_triangles, verbose=False)
         purger()
-        log.info("après second bouchage : %d faces", int(mesh.faces.shape[0]))
+        log.info("After the second hole-filling pass: %d faces", int(mesh.faces.shape[0]))
 
     return mesh
 
@@ -861,7 +859,7 @@ def _tic(jalon, libelle, frac) -> None:
     except BaseException as exc:                          # noqa: BLE001
         if type(exc).__name__ == "JobCancelled":
             raise
-        log.warning("jalon %s non pose : %s", libelle, exc)
+        log.warning("Could not report progress for %s: %s", english_stage(libelle), exc)
 
 
 def _debrancher(pipe, originaux):

@@ -260,6 +260,50 @@ standard error, one line per stage, so the result path on standard output
 stays clean. The four view path wants all three sides: an incomplete set is
 refused rather than silently downgraded.
 
+### Local web interface
+
+For a Windows checkout with `.venv` and the runtime in `LocalMesh/`, open
+PowerShell at the repository root.
+
+```powershell
+. .\Activate-LocalMesh.ps1
+python -m localmesh_engine.web serve
+```
+
+Open [LocalMesh in your browser](http://127.0.0.1:8765). On other setups,
+activate the Python 3.12 environment and set `LOCALMESH_ROOT` as shown in the
+install guide before running `serve`. The web app and 3D assets are served on
+loopback from the Python package. Add `--open` to launch your default browser.
+The Windows activation script defaults GPU caches to `LocalMesh/cache`.
+
+Drop a photo anywhere in the browser window to fill the front slot, or drop
+it on a specific photo field. Choose or drop four photos of the same subject
+to fill Front, Right, Left and Back in order. The form explains what each
+setting changes. Start with Standard quality, a blank seed and photo
+projection on. Follow the progress and log after starting the run.
+
+In the viewer, drag to orbit, scroll to zoom and toggle **Auto-rotate** for a
+slow turntable.
+Switch between **Textured**, **Shadows**, **Solid** and **Wireframe** without
+losing your camera position. If the run has an AI texture variant, you can
+preview and download it as a separate GLB.
+
+The CLI and web app store run history under `LOCALMESH_ROOT/library/runs`, with
+copies of the input photos and generated files. Reusing a seed preserves each
+run in history. CLI exports also go to `--to` and take additional disk space.
+Select a history item and confirm **Delete** to permanently remove the archived
+model, saved photo copies and log, along with any matching output files. The
+confirmation distinguishes the saved photo copies from the original photos.
+The web app lists earlier `model_<seed>.glb` files in `out/` by default. Set
+`serve --legacy-dir DIRECTORY` to browse another output folder. To link a model
+to a known original, import it from the same activated shell.
+
+```powershell
+python -m localmesh_engine.web import .\out\model_42.glb --front .\photo.png --tier draft
+```
+
+### Python API
+
 The Python API is the same engine, without the process boundary.
 
 ```python

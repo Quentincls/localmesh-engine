@@ -1,27 +1,20 @@
 # -*- coding: utf-8 -*-
-"""Une photo, ou quatre, et un objet 3D — depuis la ligne de commande.
+"""Generate a textured 3D model from one or four photos on the command line.
 
     python -m localmesh_engine photo.png
-    python -m localmesh_engine face.png --droite d.png --gauche g.png --dos b.png
-    python -m localmesh_engine photo.png --palier high --graine 42 --vers sortie/
-
-C'est le chemin le plus court pour essayer le moteur sans écrire une ligne de
-Python. Il ne range rien dans une bibliothèque et n'ouvre aucune fenêtre.
-Il ne télécharge pas les gros modèles non plus — mais il n'est PAS hors
-ligne : le détourage va chercher son modèle sur le Hub à la première
-génération s'il n'est pas déjà en cache. Les poids doivent être en place
-sous la racine du runtime (`LOCALMESH_ROOT`, ou `LUMENGEN_ROOT` pour les
-installations d'avant), et l'objet sort là où on le demande.
-
-La progression s'écrit sur la sortie d'erreur, une ligne par étape, pour
-qu'on puisse rediriger le résultat sans que le compte-rendu s'y mélange.
+    python -m localmesh_engine front.png --right r.png --left l.png --back b.png
+    python -m localmesh_engine photo.png --tier high --seed 42 --to out/
 """
 from __future__ import annotations
 
 import argparse
 import sys
 import time
+import traceback
 from pathlib import Path
+
+from .progress import english_stage
+from .run_history import SIDES, TIERS, RunHistory
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,85 +25,117 @@ def main(argv: list[str] | None = None) -> int:
     # pose plusieurs gigaoctets de poids.
     p = argparse.ArgumentParser(
         prog="localmesh_engine",
-        description="Génère un objet 3D texturé à partir d'une photo, "
-                    "ou de quatre côtés du même sujet.")
+        description="Generate a textured 3D model from one or four photos of a subject.")
     p.add_argument("photo", type=Path,
-                   help="la photo de face ; c'est elle qui porte la forme")
+                   help="front photo, which guides the shape of the model")
     # CHAQUE OPTION PORTE SON NOM ANGLAIS A COTE DU FRANCAIS. Le code est
     # ecrit en francais, les options l'etaient aussi, et un lecteur anglophone
     # se cognait sur `--dos` sans deviner qu'il s'agit du dos. Les deux
     # graphies marchent. `dest` est fige : sans lui, argparse prendrait le
     # PREMIER nom long comme attribut et tout ce qui suit lirait `a.right`.
-    p.add_argument("--droite", "--right", dest="droite", type=Path,
-                   help="le côté droit du sujet")
-    p.add_argument("--gauche", "--left", dest="gauche", type=Path,
-                   help="le côté gauche du sujet")
-    p.add_argument("--dos", "--back", dest="dos", type=Path,
-                   help="le dos du sujet")
-    p.add_argument("--palier", "--tier", dest="palier", default="standard",
-                   choices=["draft", "standard", "high", "max"],
-                   help="la recette de qualité (voir docs/RECIPES.md)")
-    p.add_argument("--graine", "--seed", dest="graine", type=int, default=-1,
-                   help="la graine ; -1 en tire une au hasard")
-    p.add_argument("--vers", "--to", dest="vers", type=Path, default=Path("."),
-                   help="le dossier où déposer l'objet")
-    p.add_argument("--sans-projection", "--no-projection", dest="projection",
+    p.add_argument("--right", "--droite", dest="droite", type=Path, metavar="PHOTO",
+                   help="right-side photo of the subject")
+    p.add_argument("--left", "--gauche", dest="gauche", type=Path, metavar="PHOTO",
+                   help="left-side photo of the subject")
+    p.add_argument("--back", "--dos", dest="dos", type=Path, metavar="PHOTO",
+                   help="back photo of the subject")
+    p.add_argument("--tier", "--palier", dest="palier", default="standard",
+                   choices=TIERS,
+                   help="quality tier (see docs/RECIPES.md)")
+    p.add_argument("--seed", "--graine", dest="graine", type=int, default=-1,
+                   metavar="SEED", help="random seed (use -1 to choose one automatically)")
+    p.add_argument("--to", "--vers", dest="vers", type=Path, default=Path("."),
+                   metavar="DIRECTORY", help="directory for generated files")
+    p.add_argument("--no-projection", "--sans-projection", dest="projection",
                    action="store_false",
-                   help="garder la texture dessinée, sans y recopier les "
-                        "pixels des photos")
+                   help="keep the generated texture without projecting the source photos")
     a = p.parse_args(argv)
 
     if not a.photo.is_file():
-        print("photo introuvable : %s" % a.photo, file=sys.stderr)
+        print("Front photo not found: %s" % a.photo, file=sys.stderr)
         return 2
 
-    # L'import est ici, pas en tête : charger le moteur prend plusieurs
-    # secondes, et `--help` ne doit pas les payer.
-    from . import config
-    from .pipeline import Engine, GenerateSettings
-
-    vues: dict[str, Path] = {}
-    for nom, chemin in (("droite", a.droite), ("gauche", a.gauche), ("dos", a.dos)):
+    sources = {"front": (a.photo.name, a.photo.resolve())}
+    for role, chemin in (("right", a.droite), ("left", a.gauche), ("back", a.dos)):
         if chemin is None:
             continue
         if not chemin.is_file():
-            print("vue %s introuvable : %s" % (nom, chemin), file=sys.stderr)
+            print("%s view not found: %s" % (role.capitalize(), chemin), file=sys.stderr)
             return 2
-        vues[nom] = chemin
+        sources[role] = (chemin.name, chemin.resolve())
 
-    if vues and len(vues) != 3:
+    if len(sources) not in (1, 4):
         # Le multivue est mesuré à quatre vues, pas à deux ou trois. Mieux
         # vaut le dire que de rendre un objet dont personne ne sait ce qu'il
         # vaut.
-        print("le multivue attend les TROIS côtés : --droite, --gauche, --dos",
+        print("Multi-view generation requires all three side photos: --right, --left, --back.",
               file=sys.stderr)
         return 2
 
+    # Keep help and input validation independent of CUDA and the model weights.
+    from . import config
+
     carte = config.gpu_report()
-    print("carte : %s, %.1f Go" % (carte.name, carte.total_vram_gb), file=sys.stderr)
+    print("GPU: %s, %.1f GB VRAM" % (carte.name, carte.total_vram_gb), file=sys.stderr)
     if not config.palier_tenable(a.palier, carte.total_vram_gb):
-        print("le palier %s demande plus de mémoire que cette carte n'en a"
+        print("The %s tier requires more VRAM than this GPU has."
               % a.palier, file=sys.stderr)
         return 3
 
     sortie = a.vers.resolve()
     sortie.mkdir(parents=True, exist_ok=True)
 
+    history = RunHistory(config.RUNTIME_ROOT)
+    run = history.create_run(origin="cli", sources=sources, tier=a.palier,
+                             seed=a.graine, projection=a.projection)
+    run_id = run["id"]
     depart = time.time()
+    with (history.cli_lock(run_id),
+          history.log_path(run_id).open("w", encoding="utf-8", buffering=1) as log):
+        print("GPU: %s, %.1f GB VRAM" % (carte.name, carte.total_vram_gb), file=log)
+        history.update_run(run_id, status="running", stage="Starting generation")
 
-    def avance(etape: str, part: float) -> None:
-        print("  %5.1f%%  %s" % (part * 100, etape), file=sys.stderr, flush=True)
+        def report(line: str) -> None:
+            print(line, file=sys.stderr, flush=True)
+            print(line, file=log)
 
-    moteur = Engine()
-    reglages = GenerateSettings(images=[a.photo.resolve()], vues=vues,
-                                detail=a.palier, seed=a.graine,
-                                projection_texture=a.projection)
-    resultat = moteur.generate(reglages, sortie, progress=avance)
+        def avance(etape: str, part: float) -> None:
+            stage = english_stage(etape)
+            report("  %5.1f%%  %s" % (part * 100, stage))
+            history.update_run(run_id, stage=stage, progress=part)
 
-    print("%s" % resultat.glb_path)
-    print("%d faces, %.0f s, pic %.2f Go, graine %d"
-          % (resultat.faces, time.time() - depart,
-             resultat.peak_vram_gb or 0.0, resultat.seed), file=sys.stderr)
+        try:
+            from .pipeline import Engine, GenerateSettings
+
+            photos = history.source_paths(run_id)
+            vues = {SIDES[role]: path for role, path in photos.items() if role in SIDES}
+            reglages = GenerateSettings(images=[photos["front"]], vues=vues,
+                                        detail=a.palier, seed=a.graine,
+                                        projection_texture=a.projection)
+            resultat = Engine().generate(reglages, history.result_dir(run_id), progress=avance)
+            history.record_result(run_id, resultat)
+        except KeyboardInterrupt:
+            history.update_run(run_id, status="interrupted", stage="Interrupted")
+            report("Generation interrupted.")
+            return 130
+        except Exception as exc:
+            history.update_run(run_id, status="failed", stage="Failed", error=str(exc))
+            traceback.print_exc(file=log)
+            raise
+
+        try:
+            output = history.export_run(run_id, sortie)
+        except OSError as exc:
+            archived = history.asset(run_id, "model")
+            error = f"Export failed. The generated model is saved at {archived}: {exc}"
+            history.update_run(run_id, error=error)
+            report(error)
+            return 1
+
+        print(output)
+        report("%d faces, %.0f s, peak VRAM %.2f GB, seed %d"
+               % (resultat.faces, time.time() - depart,
+                  resultat.peak_vram_gb or 0.0, resultat.seed))
     return 0
 
 

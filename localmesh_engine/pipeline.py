@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Callable, Literal, Optional
 
 from . import config
+from .progress import english_stage
 
 config.bootstrap()
 
@@ -53,7 +54,7 @@ def _melange_multivue() -> float:
         try:
             return float(regle)
         except ValueError:
-            log.warning("LUMENGEN_BANC_MELANGE illisible (%r), mélange %s", regle, MELANGE_MULTIVUE)
+            log.warning("Invalid LUMENGEN_BANC_MELANGE (%r), using %s", regle, MELANGE_MULTIVUE)
     return MELANGE_MULTIVUE
 
 
@@ -99,8 +100,7 @@ def _cond_texture():
         try:
             return int(regle)
         except ValueError:
-            log.warning("LUMENGEN_COND_TEXTURE illisible (%r), conditionnement "
-                        "inchangé", regle)
+            log.warning("Invalid LUMENGEN_COND_TEXTURE (%r), using default conditioning", regle)
     return COND_TEXTURE
 
 
@@ -130,8 +130,7 @@ def _melange_texture():
         try:
             return float(regle)
         except ValueError:
-            log.warning("LUMENGEN_BANC_MELANGE_TEX illisible (%r), mélange "
-                        "inchangé", regle)
+            log.warning("Invalid LUMENGEN_BANC_MELANGE_TEX (%r), using default blending", regle)
     return MELANGE_TEXTURE
 
 
@@ -185,8 +184,7 @@ def _texture_quatre_vues():
     if regle in ("ensemble", "moyenne"):
         return regle
     if regle:
-        log.warning("LUMENGEN_TEXTURE_4VUES illisible (%r), quatre vues "
-                    "moyennees (le defaut)", regle)
+        log.warning("Invalid LUMENGEN_TEXTURE_4VUES (%r), averaging four views", regle)
     return TEXTURE_QUATRE_VUES
 
 
@@ -199,7 +197,7 @@ def _plafond_de_faces() -> int:
         try:
             return int(regle)
         except ValueError:
-            log.warning("LUMENGEN_PLAFOND_FACES illisible (%r), plafond par carte", regle)
+            log.warning("Invalid LUMENGEN_PLAFOND_FACES (%r), using the GPU's face limit", regle)
     try:
         go = float(config.gpu_report().total_vram_gb)
     except Exception:                                        # noqa: BLE001
@@ -596,10 +594,10 @@ def _multivue_porte(nb_vues: int, settings, geo_vues: dict | None = None) -> boo
         return False
 
 
-def _pourquoi_pas_le_chemin_porte(nb_vues: int, settings) -> str | None:
+def _pourquoi_pas_le_chemin_porte(nb_vues: int, settings) -> tuple[str, str] | None:
     """Pourquoi le chemin a quatre vues n'a pas pris ce travail.
 
-    Rend une NOTE a poser sur le rendu, ou None quand il n'y a rien a dire.
+    Rend le message de journal et la note historique du rendu, ou None.
     La porte au-dessus rend un booleen et garde son contrat ; celle-ci
     rejoue la meme suite de tests, dans le meme ordre, pour nommer celui qui
     a ferme.
@@ -619,18 +617,21 @@ def _pourquoi_pas_le_chemin_porte(nb_vues: int, settings) -> str | None:
         return None                      # interrupteurs de banc, pas du produit
     if (config.recette(settings.detail).pipeline_type.startswith("1536")
             and os.environ.get("LUMENGEN_MV_TOUS_PALIERS") != "1"):
-        return ("Ce palier ne passe pas par le chemin a quatre vues : ses "
+        return ("The four-view model supports up to 1024. Using legacy blending for this tier.",
+                "Ce palier ne passe pas par le chemin a quatre vues : ses "
                 "modeles s'arretent a 1024, et ce palier promet plus. Les "
                 "quatre photos ont servi par l'ancien melangeur.")
     try:
         from .multivue import Poids
         if not Poids.depuis(config.MODELS_ROOT).pretes():
-            return ("Le chemin a quatre vues n'a pas servi : ses modeles ne "
+            return ("The four-view model is missing. Using legacy blending.",
+                    "Le chemin a quatre vues n'a pas servi : ses modeles ne "
                     "sont pas encore sur cette machine. Les quatre photos ont "
                     "servi par l'ancien melangeur, qui melange des predictions "
                     "entieres au lieu de fondre les vues.")
     except Exception:                                         # noqa: BLE001
-        return ("Le chemin a quatre vues n'a pas servi : ses modeles ne sont "
+        return ("The four-view model could not be read. Using legacy blending.",
+                "Le chemin a quatre vues n'a pas servi : ses modeles ne sont "
                 "pas lisibles sur cette machine. Les quatre photos ont servi "
                 "par l'ancien melangeur.")
     return None
@@ -784,7 +785,7 @@ class Engine:
             # (mesure : moteur chaud 740 s, froid 474 s ; rechargement 5 a
             # 11 s). Doctrine de Quentin : memes regles sur toutes les cartes.
             low_vram = True
-            log.info("mode econome sur toutes les cartes : %.1f Go libres",
+            log.info("Low VRAM mode: %.1f GB free",
                      libre_go)
         self.low_vram = low_vram
 
@@ -809,8 +810,8 @@ class Engine:
             raise FileNotFoundError(
                 f"{'Pixal3D' if pixal else 'TRELLIS.2'} weights not found at "
                 f"{self.weights}."
-                + (" Le niveau « Extrême » demande un téléchargement de 24 Go."
-                   if pixal else " Lancez le téléchargement initial.")
+                + (" The Pixal3D tier requires a 24 GB download."
+                   if pixal else " Install the initial model weights.")
             )
         t0 = time.time()
         if progress:
@@ -961,7 +962,7 @@ class Engine:
             if frac < plus_haut - 1e-6:
                 return
             plus_haut = frac
-            log.info("[%.0f%%] %s", frac * 100, stage)
+            log.info("[%.0f%%] %s", frac * 100, english_stage(stage))
             if progress:
                 progress(stage, frac)
 
@@ -1016,7 +1017,7 @@ class Engine:
             try:
                 a_lire[_NOM_DU_ROLE[angle]] = Image.open(chemin_vue)
             except Exception as exc:                          # noqa: BLE001
-                log.warning("vue %s illisible : %s", angle, exc)
+                log.warning("Could not read the %s view: %s", _NOM_DU_ROLE[angle], exc)
                 notes.append(
                     f"La vue « {angle} » n'a pas pu être lue et n'a pas "
                     f"servi : {exc}")
@@ -1095,14 +1096,14 @@ class Engine:
                               if getattr(settings, "angles_mv", "auto") == "nominaux"
                               else _cotes.azimuts_mesures(rapport_cotes))
                 if azimuts_mv:
-                    log.info("angles de prise de vue mesurés : %s",
-                             ", ".join("%s %.1f°" % (r, a)
+                    log.info("Measured camera angles: %s",
+                             ", ".join("%s %.1f deg" % (r, a)
                                        for r, a in azimuts_mv.items()))
-                log.info("cotes mesures : %s%s", cotes_mesures,
+                log.info("Side-view measurement: %s%s", cotes_mesures,
                          "" if "erreur" not in rapport_cotes
                          else " (%s)" % rapport_cotes["erreur"])
             else:
-                log.info("cotes non mesurables : %s",
+                log.info("Side-view measurement unavailable. Missing: %s",
                          ", ".join(_cotes.manquants(config)))
 
         if len(settings.images) > 1:
@@ -1202,7 +1203,8 @@ class Engine:
                 # plutot qu'une erreur : quelqu'un qui n'a pas telecharge la
                 # brique doit quand meme obtenir quelque chose.
                 from .multivue import chemin as _mv
-                log.info("multi-vue porte : face + %s", ", ".join(vues_pil))
+                log.info("Four-view generation: front + %s",
+                         ", ".join(_NOM_DU_ROLE[view] for view in vues_pil))
                 notes.append("Généré depuis %d vues." % (1 + len(vues_pil)))
                 images_mv = _mv_images(image, vues_pil)
                 cadre = _cadre_commun(geo_vues)
@@ -1230,13 +1232,15 @@ class Engine:
                     pas_structure=r.steps_structure,
                     pas_forme=max(1, r.steps_shape // 2),
                     jalon=step)
-                log.info("multi-vue porte : %d cellules, lateralite %s, "
-                         "force %.1f (%s)",
+                side_source = {"imposee": "manual", "mesuree": "measured",
+                               "convention": "default"}
+                log.info("Four-view generation: %d cells, %s side assignment, "
+                         "weighting %.1f (%s)",
                          mesure_mv["cellules"],
-                         mesure_mv["lateralite"]["source"],
+                         side_source[mesure_mv["lateralite"]["source"]],
                          mesure_mv.get("force", -1.0),
-                         "imposee" if getattr(settings, "force_mv", None)
-                         is not None else "mesuree")
+                         "manual" if getattr(settings, "force_mv", None)
+                         is not None else "measured")
                 # LA MENTION EST LA MOITIE DU CORRECTIF. Le module promet que
                 # le resultat dit quand la lateralite a ete supposee ; sans
                 # cette note, celui dont les profils sortent du mauvais cote
@@ -1321,7 +1325,8 @@ class Engine:
                 # un jour ses flancs echanges, c'est LA que ca se regle.
                 # La note est TRADUITE PAR L'APP (notes.ts, par gabarit) : un
                 # seul nombre à capturer ; la liste des côtés va au journal.
-                log.info("multi-vue : face + %s", ", ".join(vues_pil))
+                log.info("Multi-view generation: front + %s",
+                         ", ".join(_NOM_DU_ROLE[view] for view in vues_pil))
                 notes.append("Généré depuis %d vues." % (1 + len(vues_pil)))
                 # ON DIT POURQUOI ON N'EST PAS SUR L'AUTRE CHEMIN. Les deux
                 # routes ecrivaient la meme note, mot pour mot : personne ne
@@ -1329,8 +1334,9 @@ class Engine:
                 # pas servi.
                 _raison = _pourquoi_pas_le_chemin_porte(len(vues_pil), settings)
                 if _raison:
-                    log.warning("chemin porte ecarte : %s", _raison)
-                    notes.append(_raison)
+                    message, note = _raison
+                    log.warning("%s", message)
+                    notes.append(note)
                 meshes = pipe.run_multiview(
                     front=image,
                     generate_texture_slat=False,
@@ -1450,7 +1456,7 @@ class Engine:
             # qu une machine qui redemarre.
             _faces_brutes = len(mesh.faces)
             _plafond = _plafond_de_faces()
-            log.info("le remaillage recoit %d faces (plafond %d)",
+            log.info("Remeshing %d input faces (limit %d)",
                      _faces_brutes, _plafond)
             if _faces_brutes > _plafond:
                 # LE REPLI PLUTOT QUE LE REFUS. Une forme trop lourde vient
@@ -1461,8 +1467,8 @@ class Engine:
                 # du maillage dit ce qui s'est passe.
                 _palier_bas = PALIER_DE_REPLI.get(settings.detail)
                 if _palier_bas and not os.environ.get("LUMENGEN_SANS_REPLI"):
-                    log.warning("forme trop lourde au palier %s (%d faces, "
-                                "plafond %d) : reprise au palier %s",
+                    log.warning("Shape exceeds the %s tier's face limit (%d faces, "
+                                "limit %d). Retrying at the %s tier.",
                                 settings.detail, _faces_brutes, _plafond,
                                 _palier_bas)
                     del mesh, meshes
@@ -1529,9 +1535,9 @@ class Engine:
             if os.environ.get("LUMENGEN_TRACE_MAILLAGE") == "1":
                 try:
                     tm.export(out_dir / "avant_texture.glb")
-                    log.info("trace : maillage avant texturation depose")
+                    log.info("Saved the mesh before texturing")
                 except Exception as exc:                      # noqa: BLE001
-                    log.warning("trace non deposee : %s", exc)
+                    log.warning("Could not save the mesh before texturing: %s", exc)
 
             step("texturing", 0.65)
             glb, replie = self._texturer_avec_repli(
@@ -1586,7 +1592,7 @@ class Engine:
                 try:
                     glb.export(out_dir / "avant_projection.glb")
                 except Exception as exc:                      # noqa: BLE001
-                    log.warning("trace avant projection non deposee : %s", exc)
+                    log.warning("Could not save the mesh before projection: %s", exc)
             compagnon_ai = self._projeter_photos(
                 glb, image, vues_pil, alphas_prep, azimuts_mv, cotes_mesures,
                 settings, step, notes)
@@ -1623,7 +1629,7 @@ class Engine:
             try:
                 _ = g.vertex_normals
             except Exception as exc:                          # noqa: BLE001
-                log.warning("normales non recalculees : %s", exc)
+                log.warning("Could not recalculate normals: %s", exc)
 
         out_path = out_dir / f"model_{seed}.glb"
         # Le .glb reste EN DERNIER dans le nom : trimesh choisit son
@@ -1694,7 +1700,7 @@ class Engine:
             try:
                 (out_dir / trace).unlink(missing_ok=True)
             except OSError as exc:                            # noqa: BLE001
-                log.warning("apercu %s non efface : %s", trace, exc)
+                log.warning("Could not remove preview %s: %s", trace, exc)
 
         faces = int(sum(len(g.faces) for g in _geometries(glb)))
         verts = int(sum(len(g.vertices) for g in _geometries(glb)))
@@ -1795,8 +1801,8 @@ class Engine:
                                             if k in vues]
                         if cond is None:
                             cond = COND_QUATRE_VUES
-                        log.info("texture : %d vues d'un seul tenant, "
-                                 "conditionnement %d", len(entree), cond)
+                        log.info("Texturing: joint conditioning from %d views at %d",
+                                 len(entree), cond)
                     glb, _base, _mr = remaillage.texturer(
                         pipe, tm, entree, seed=seed,
                         resolution=r.tex_resolution,
@@ -1822,11 +1828,10 @@ class Engine:
             # et la branche ci-dessous s'execute comme avant.
             if getattr(mesh, "attrs", None) is None \
                     or getattr(mesh, "coords", None) is None:
-                log.warning("texturation echouee (%s) — aucun volume en "
-                            "repli, l'echec est releve tel quel", exc)
+                log.warning("Texturing failed (%s). No fallback volume is available.", exc)
                 raise
 
-            log.warning("texturation echouee (%s) — repli sur to_glb", exc)
+            log.warning("Texturing failed (%s). Falling back to to_glb.", exc)
             notes.append(
                 "La texturation a echoue ; la texture vient du volume "
                 f"(ancien chemin). Cause : {exc}")
@@ -1844,10 +1849,10 @@ class Engine:
 
         faces = int(len(glb.faces))
         log.info(
-            "MESURE TEXTURATION — %.1f s ; pic carte %.2f Go (%.1f %% de la "
-            "carte) ; torch alloue %.0f -> pic %.0f Mo, reserve %.0f -> pic "
-            "%.0f Mo ; volume PBR encore resident %.0f Mo ; atlas %d, %d "
-            "faces, %.0f texels par triangle",
+            "Texturing: %.1f s, peak VRAM %.2f GB (%.1f%% of GPU capacity), "
+            "PyTorch allocated %.0f -> peak %.0f MB, reserved %.0f -> peak "
+            "%.0f MB, resident PBR volume %.0f MB, atlas %d, %d faces, "
+            "%.0f texels per triangle",
             time.time() - t0, metre.pic_gb, metre.occupation_pct,
             alloue_avant, torch.cuda.max_memory_allocated() / 1024 ** 2,
             reserve_avant, torch.cuda.max_memory_reserved() / 1024 ** 2,
@@ -2057,7 +2062,7 @@ class Engine:
                   if getattr(g.visual, "uv", None) is not None
                   and projection._texture_de(g) is not None]
         if len(cibles) != 1:
-            log.info("projection des photos sautee : %d maillage(s) texture(s)",
+            log.info("Photo projection skipped: found %d textured meshes, expected one",
                      len(cibles))
             return None
 
@@ -2096,8 +2101,7 @@ class Engine:
         except JobCancelled:
             raise
         except Exception as exc:                              # noqa: BLE001
-            log.warning("projection des photos echouee (%s) : texture dessinee "
-                        "gardee", exc)
+            log.warning("Photo projection failed (%s). Keeping the generated texture.", exc)
             notes.append("La projection des photos a échoué ; la texture "
                          f"dessinée est gardée. Cause : {exc}")
             return None
@@ -2202,7 +2206,7 @@ def _recoudre_orientation(geom) -> None:
             if accord < 0:
                 geom.invert()
     except Exception as exc:  # noqa: BLE001 - un maillage sale vaut mieux que rien
-        log.warning("orientation des faces non recousue : %s", exc)
+        log.warning("Could not align face winding: %s", exc)
 
 
 #: Les deux noms sous lesquels le descripteur du modele se presente.
@@ -2227,8 +2231,8 @@ def _write_local_pipeline_config(weights: Path) -> str:
     src = _descripteur(weights)
     if src is None:
         raise FileNotFoundError(
-            "aucun descripteur de modele sous %s : attendu %s"
-            % (weights, " ou ".join(_NOMS_DESCRIPTEUR)))
+            "No model configuration found under %s. Expected %s."
+            % (weights, " or ".join(_NOMS_DESCRIPTEUR)))
     dst = weights / _LOCAL_CONFIG_NAME
     data = json.loads(src.read_text(encoding="utf-8"))
 
@@ -2369,8 +2373,7 @@ def _ecrire_compagnon_ai(glb, out_path: Path, geom, image_avant) -> Optional[Pat
     # changerait rien au fichier, et le compagnon serait le livrable, muet.
     if (finale is None or image_avant is None
             or not any(g is geom for g in _geometries(glb))):
-        log.warning("compagnon IA non ecrit : texture finale introuvable sur "
-                    "le modele livre")
+        log.warning("Skipped the AI texture variant because the final model has no matching texture")
         return None
     try:
         setattr(mat, champ, image_avant if image_avant.mode == finale.mode
@@ -2378,11 +2381,11 @@ def _ecrire_compagnon_ai(glb, out_path: Path, geom, image_avant) -> Optional[Pat
         glb.export(provisoire)
         provisoire.replace(compagnon)
     except Exception as exc:                                  # noqa: BLE001
-        log.warning("compagnon IA non ecrit : %s", exc)
+        log.warning("Could not save the AI texture variant: %s", exc)
         try:
             provisoire.unlink(missing_ok=True)
         except OSError as exc_menage:                         # noqa: BLE001
-            log.warning("compagnon IA partiel non efface : %s", exc_menage)
+            log.warning("Could not remove the partial AI texture variant: %s", exc_menage)
         return None
     finally:
         setattr(mat, champ, finale)
@@ -2410,7 +2413,7 @@ def _sans_compagnon_orphelin(step, compagnon: Optional[Path]):
                 try:
                     compagnon.unlink(missing_ok=True)
                 except OSError as exc:                        # noqa: BLE001
-                    log.warning("compagnon IA non efface apres annulation : %s",
+                    log.warning("Could not remove the AI texture variant after cancellation: %s",
                                 exc)
             raise
     return etape

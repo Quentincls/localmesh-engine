@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LocalMesh Engine</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA00lEQVR42u2Xyw2EMAwFYysd0MWWAr1wpwLu9MKWQhdbw3JCAuQQx4ljkPAxAs3kYyUPXKCaT/t3Beu3fIEaB21wTARrwikG1oRTLKwNP0ugMy6wmH3wEEpqmGabFaDAY9/pC+zBe2BovJgAF5AqEhWQzoz7n3kbesn+c7egqMAGHaaZFKGWnCPjU5eMEslpQ/EZGPvuAJTAb3EIX4HnCKT2N/d7n9v/6ndBDJB7LT/vPSC5Hy4FrF7FW0i5RxuGcluNiIax8KidD5GTYDXDKVjH8xWNQHztGNFoagAAAABJRU5ErkJggg==">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script type="importmap">{"imports":{"three":"/static/vendor/three/build/three.module.js","three/addons/":"/static/vendor/three/examples/jsm/"}}</script>
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <main class="workspace" aria-label="LocalMesh Engine">
+    <div class="workspace-sidebar">
+      <section class="panel generation" aria-labelledby="generation-heading">
+        <h2 id="generation-heading">New generation</h2>
+        <form id="generation-form">
+          <div class="photo-dropzone">
+            <button type="button" id="choose-photos" class="button-secondary" aria-describedby="photo-drop-help">Choose photos</button>
+            <input type="file" id="photo-picker" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" hidden>
+            <p class="field-help" id="photo-drop-help">Drop photos anywhere in this window. One goes to Front. Four fill Front, Right, Left and Back in the order received.</p>
+            <p class="field-help" id="photo-feedback" role="status" hidden></p>
+          </div>
+          <div class="field photo-field" data-photo-role="front">
+            <label for="front">Front image</label>
+            <input type="file" name="front" id="front" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-describedby="front-help" required>
+            <p class="field-help" id="front-help">A clear front photo is enough to start.</p>
+          </div>
+          <details class="advanced-views" id="extra-views">
+            <summary>Four-view input</summary>
+            <p class="field-help" id="views-help">More angles give the engine more of the subject’s shape. Use the same subject and similar framing for all four photos.</p>
+            <div class="field photo-field" data-photo-role="right">
+              <label for="right">Right image</label>
+              <input type="file" name="right" id="right" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-describedby="views-help">
+            </div>
+            <div class="field photo-field" data-photo-role="left">
+              <label for="left">Left image</label>
+              <input type="file" name="left" id="left" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-describedby="views-help">
+            </div>
+            <div class="field photo-field" data-photo-role="back">
+              <label for="back">Back image</label>
+              <input type="file" name="back" id="back" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-describedby="views-help">
+            </div>
+          </details>
+          <div class="field-row">
+            <div class="field">
+              <label for="tier">Quality</label>
+              <div class="select-wrap">
+                <select id="tier" name="tier" aria-describedby="quality-help">
+                  <option value="draft">Draft</option>
+                  <option value="standard" selected>Standard</option>
+                  <option value="high">High</option>
+                  <option value="max">Max</option>
+                </select>
+              </div>
+              <p class="field-help" id="quality-help">Standard is a good starting point.</p>
+            </div>
+            <div class="field">
+              <label for="seed">Seed</label>
+              <input type="number" id="seed" name="seed" min="-1" max="2147483647" step="1" placeholder="Random" aria-describedby="seed-help">
+              <p class="field-help" id="seed-help">Sets the starting variation. Leave blank for random or reuse a number like 42.</p>
+            </div>
+          </div>
+          <details class="settings-help">
+            <summary>Quality and seed details</summary>
+            <dl class="help-list">
+              <div><dt>Draft</dt><dd>Fast preview, with a budget of about 80,000 faces.</dd></div>
+              <div><dt>Standard</dt><dd>Recommended for most models, with about 150,000 faces.</dd></div>
+              <div><dt>High</dt><dd>More sampling and finer detail, with about 250,000 faces.</dd></div>
+              <div><dt>Max</dt><dd>Highest shape resolution and detail. Targets a GPU with 24 GB of VRAM.</dd></div>
+              <div><dt>Seed range</dt><dd>Enter 0 to 2,147,483,647 for a fixed seed. Blank or −1 picks a random seed.</dd></div>
+            </dl>
+          </details>
+          <div class="field">
+            <label class="checkbox-field" for="projection">
+              <input id="projection" name="projection" type="checkbox" aria-describedby="projection-help" checked>
+              <span>Project photo texture</span>
+            </label>
+            <p class="field-help" id="projection-help">Keeps colors and logos from the photos. Turn it off if the texture stretches or you want the AI texture.</p>
+          </div>
+          <button type="submit" class="button-primary" id="generate-button">Generate model</button>
+          <p id="generation-error" class="message-error" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <section class="panel history" aria-labelledby="history-heading">
+        <div class="section-heading">
+          <h2 id="history-heading">History</h2>
+          <button type="button" id="refresh-history" class="button-secondary">Refresh</button>
+        </div>
+        <p class="field-help" id="history-message" role="status">Loading history…</p>
+        <ul id="history-list" class="history-list" aria-label="Generation history"></ul>
+      </section>
+    </div>
+
+    <div class="workspace-result">
+      <section class="panel preview" aria-labelledby="preview-heading">
+        <div class="section-heading preview-heading">
+          <div>
+            <h2 id="preview-heading">Model preview</h2>
+            <p id="selection-title" class="selection-title" hidden></p>
+          </div>
+          <div class="preview-actions">
+            <a id="download-model" class="button-secondary" download hidden>Download GLB</a>
+            <button type="button" class="button-danger-secondary" id="delete-run" title="Delete this generation from history" hidden>Delete</button>
+          </div>
+        </div>
+        <div class="viewer-toolbar">
+          <div class="mode-group" id="display-modes" role="group" aria-label="Display mode" aria-describedby="mode-help">
+            <button type="button" data-mode="textured" aria-pressed="true" disabled>Textured</button>
+            <button type="button" data-mode="shadows" aria-pressed="false" disabled>Shadows</button>
+            <button type="button" data-mode="solid" aria-pressed="false" disabled>Solid</button>
+            <button type="button" data-mode="wireframe" aria-pressed="false" disabled>Wireframe</button>
+          </div>
+          <label class="checkbox-field rotate-control" for="auto-rotate">
+            <input id="auto-rotate" type="checkbox" aria-describedby="rotation-help" disabled>
+            <span>Auto-rotate</span>
+          </label>
+          <div class="select-wrap variant-control" id="variant-control" hidden>
+            <select id="model-variant" aria-label="Model texture version" aria-describedby="variant-help">
+              <option value="final">Final texture</option>
+              <option value="ai">AI texture</option>
+            </select>
+          </div>
+        </div>
+        <details class="settings-help viewer-settings-help">
+          <summary>Display help</summary>
+          <dl class="help-list">
+            <div id="mode-help"><dt>Display modes</dt><dd>Textured shows the model’s colors. Shadows shows how it casts and receives shadows. Solid shows the unpainted shape. Wireframe shows triangle edges.</dd></div>
+            <div id="rotation-help"><dt>Auto-rotate</dt><dd>Orbits the model slowly, about one turn per minute.</dd></div>
+            <div id="variant-help"><dt>Texture version</dt><dd>Final uses photo projection if available. AI shows the texture generated by the model.</dd></div>
+            <div><dt>Camera</dt><dd>Drag to orbit and scroll or pinch to zoom. With the viewer focused, use the arrow keys and + or −.</dd></div>
+          </dl>
+        </details>
+        <div id="viewer" class="viewer">
+          <div class="viewer-surface" id="viewer-surface"></div>
+          <p class="viewer-message" id="viewer-message" role="status">Loading history…</p>
+          <p class="viewer-help" id="viewer-help" hidden>Drag to orbit · Scroll to zoom</p>
+        </div>
+        <div class="run-detail" id="run-detail" hidden>
+          <div class="run-status-line" id="run-status-line">
+            <span class="status" id="run-status"></span>
+            <span id="run-stage" class="field-help"></span>
+          </div>
+          <progress id="run-progress" max="1" hidden aria-label="Generation progress"></progress>
+          <p id="run-error" class="message-error" role="alert" hidden></p>
+          <dl class="run-metadata" id="run-metadata" hidden></dl>
+          <details class="run-log" id="run-log" hidden>
+            <summary>Generation log</summary>
+            <pre id="log-output" tabindex="0" aria-label="Generation log output"></pre>
+          </details>
+        </div>
+      </section>
+
+      <section class="panel sources" aria-labelledby="sources-heading">
+        <h2 id="sources-heading">Source images</h2>
+        <p class="field-help" id="sources-message">Select a generation to see its source images.</p>
+        <ul class="source-list" id="source-list"></ul>
+      </section>
+    </div>
+  </main>
+  <p class="drop-indicator" id="drop-indicator" aria-hidden="true">Drop photos to add them</p>
+  <dialog id="delete-dialog" aria-labelledby="delete-heading" aria-describedby="delete-target delete-description">
+    <h2 id="delete-heading">Delete generation?</h2>
+    <p id="delete-target" class="selection-title"></p>
+    <p id="delete-description"></p>
+    <p id="delete-error" class="message-error" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button type="button" class="button-secondary" id="cancel-delete" autofocus>Cancel</button>
+      <button type="button" class="button-danger" id="confirm-delete">Delete generation</button>
+    </div>
+  </dialog>
+</body>
+</html>

@@ -2945,8 +2945,8 @@ class Trellis2ImageTo3DPipeline(Pipeline):
             m = resolution // 16 + 1
             n_jetons = int(torch.unique((q[:, 0] * m + q[:, 1]) * m + q[:, 2]).numel())
             if n_jetons > max_tokens:
-                print(f"[LocalMesh] texture : {n_jetons} jetons a {resolution}, "
-                      f"plafond {max_tokens}, DiT 512")
+                print(f"[LocalMesh] Texture: {n_jetons} tokens at {resolution}, "
+                      f"limit {max_tokens}, switching to DiT 512")
                 return None
 
         vertices = SparseTensor(
@@ -3268,10 +3268,10 @@ class Trellis2ImageTo3DPipeline(Pipeline):
         # carte, on reencode a 512 et on prend le DiT 512 : quatre fois moins
         # de jetons, une texture un peu moins fine, rendue en minutes.
         n_jetons = int(shape_slat.coords.shape[0])
-        print(f"[LocalMesh] texture : {n_jetons} jetons a {resolution}"
-              + (f", plafond {max_tex_tokens}" if max_tex_tokens else ""))
+        print(f"[LocalMesh] Texture: {n_jetons} tokens at {resolution}"
+              + (f", limit {max_tex_tokens}" if max_tex_tokens else ""))
         if max_tex_tokens and resolution == 1024 and n_jetons > max_tex_tokens:
-            print("[LocalMesh] texture : au-dela du plafond, DiT 512")
+            print("[LocalMesh] Texture: token limit exceeded, switching to DiT 512")
             del shape_slat
             torch.cuda.empty_cache()
             resolution = 512
