@@ -37,6 +37,7 @@ the [changelog](CHANGELOG.md#v120--11-october-2026).
 [Results](#results) &nbsp;&middot;&nbsp;
 [Install](#install) &nbsp;&middot;&nbsp;
 [Use](#use) &nbsp;&middot;&nbsp;
+[Web UI](#local-web-interface) &nbsp;&middot;&nbsp;
 [Quality tiers](#quality-tiers) &nbsp;&middot;&nbsp;
 [Licence](#licence-and-credits)
 
@@ -276,17 +277,32 @@ install guide before running `serve`. The web app and 3D assets are served on
 loopback from the Python package. Add `--open` to launch your default browser.
 The Windows activation script defaults GPU caches to `LocalMesh/cache`.
 
+The screenshots use a synthetic camera and four rendered views.
+
+<div align="center">
+  <img src="assets/web-ui-overview.webp" alt="LocalMesh web interface with four photos matched by filename, generation settings and history on the left, a textured camera in the center, and four source views on the right" width="100%">
+</div>
+
 Drop a photo anywhere in the browser window to fill the front slot, or drop
-it on a specific photo field. Choose or drop four photos of the same subject
-to fill Front, Right, Left and Back in order. The form explains what each
-setting changes. Start with Standard quality, a blank seed and photo
-projection on. Follow the progress and log after starting the run.
+it on a specific photo field. To add all four photos together, include each
+view name as a separate word in its filename, such as `statue-front.png`,
+`statue-right.png`, `statue-left.png` and `statue-back.png`. The app matches
+the names to the four fields regardless of file order. If any view is unclear
+or repeated, all four fill Front, Right, Left and Back in file order. Start with
+Standard quality, a blank seed and photo projection on. Follow the progress
+and log after starting the run.
 
 In the viewer, drag to orbit, scroll to zoom and toggle **Auto-rotate** for a
 slow turntable.
 Switch between **Textured**, **Shadows**, **Solid** and **Wireframe** without
 losing your camera position. If the run has an AI texture variant, you can
-preview and download it as a separate GLB.
+preview and download it as a separate GLB. Open **Generation log** to see the
+latest lines. The log follows new output when scrolled to the bottom and keeps
+your place when you scroll up.
+
+<div align="center">
+  <img src="assets/web-ui-wireframe-log.webp" alt="Wireframe mode showing the camera mesh with the Generation log expanded below it" width="680">
+</div>
 
 The CLI and web app store run history under `LOCALMESH_ROOT/library/runs`, with
 copies of the input photos and generated files. Reusing a seed preserves each
@@ -301,6 +317,15 @@ to a known original, import it from the same activated shell.
 ```powershell
 python -m localmesh_engine.web import .\out\model_42.glb --front .\photo.png --tier draft
 ```
+
+Use **Clear cache** below History to remove temporary files under
+`LOCALMESH_ROOT/cache`. Clear it between generations when you need to reclaim
+space or discard temporary diagnostics. Model weights and saved runs live in
+separate folders. The next run can take longer while GPU caches rebuild.
+
+<div align="center">
+  <img src="assets/web-ui-cache.webp" alt="Clear LocalMesh cache confirmation with details about temporary files and cache rebuild time">
+</div>
 
 ### Python API
 

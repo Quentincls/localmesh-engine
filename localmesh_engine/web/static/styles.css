@@ -161,7 +161,7 @@ h2 { font-size: 1.05rem; letter-spacing: -.02em; font-weight: 650; }
 .button-danger { background: #ffb3ac; color: #44221f; }
 .button-danger:hover:not(:disabled) { background: #ffccc7; }
 
-#delete-dialog {
+.confirmation-dialog {
   width: min(460px, calc(100% - 32px));
   max-height: calc(100% - 32px);
   padding: 20px;
@@ -170,8 +170,9 @@ h2 { font-size: 1.05rem; letter-spacing: -.02em; font-weight: 650; }
   background: var(--panel);
   color: var(--text);
 }
-#delete-dialog::backdrop { background: #090e17bb; }
-#delete-dialog p + p { margin-top: 10px; }
+.confirmation-dialog::backdrop { background: #090e17bb; }
+.confirmation-dialog h2 + p { margin-top: 4px; }
+.confirmation-dialog p + p { margin-top: 10px; }
 .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 
 .viewer-toolbar {
@@ -285,8 +286,16 @@ h2 { font-size: 1.05rem; letter-spacing: -.02em; font-weight: 650; }
 
 .history .section-heading { margin-bottom: 12px; }
 .history .button-secondary { min-height: 30px; padding: 3px 8px; }
+.history-tools { display: grid; justify-items: start; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .history-list, .source-list { margin: 0; padding: 0; list-style: none; }
-.history-list { display: grid; gap: 6px; max-height: min(460px, 53vh); overflow: auto; scrollbar-gutter: stable; }
+.history-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  max-height: min(460px, 53vh);
+  overflow: auto;
+  scrollbar-width: thin;
+}
 .history-list:empty { display: none; }
 .history-item {
   width: 100%;

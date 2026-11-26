@@ -22,6 +22,7 @@ from urllib.parse import unquote, urlsplit
 
 from ..run_history import ACTIVE_STATUSES, ROLES, TIERS, DeletionConflict, RunHistory
 from .._locking import LockBusy, process_lock
+from ._cache import CacheConflict, clear_runtime_cache
 
 
 STATIC_DIR = Path(__file__).with_name("static").resolve()
@@ -204,7 +205,20 @@ class WebRuns:
         with self._lock:
             if run_id == self._active_run_id:
                 raise DeletionConflict("Wait for this generation to finish before deleting it.")
-        return self.history.delete_run(run_id)
+            return self.history.delete_run(run_id)
+
+    def clear_cache(self) -> tuple[int, int]:
+        busy = "Wait for current generations to finish before clearing the cache."
+        with self._lock:
+            if self._stopping or self._active is not None:
+                raise CacheConflict(busy)
+            try:
+                with self.history.cache_activity_lock(), process_lock(self._worker_lock):
+                    if self.history.cli_generation_active():
+                        raise CacheConflict(busy)
+                    return clear_runtime_cache(self.history.runtime_root)
+            except LockBusy as exc:
+                raise CacheConflict(busy) from exc
 
     def close(self) -> None:
         with self._lock:
@@ -384,6 +398,8 @@ class LandingHandler(BaseHTTPRequestHandler):
     def _delete(self) -> None:
         self._validate_origin()
         path = unquote(urlsplit(self.path).path)
+        if path == "/api/cache":
+            return self._clear_cache()
         match = re.fullmatch(r"/api/runs/((?:legacy-)?[0-9a-f]{32})", path)
         if not match:
             raise RequestError(HTTPStatus.NOT_FOUND, "Generation not found.")
@@ -403,6 +419,24 @@ class LandingHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         self._handle(self._delete)
+
+    def _clear_cache(self) -> None:
+        try:
+            removed, failed = self.runs.clear_cache()
+        except CacheConflict as exc:
+            raise RequestError(HTTPStatus.CONFLICT, str(exc)) from exc
+        except OSError as exc:
+            logging.exception("Could not access the runtime cache")
+            raise RequestError(HTTPStatus.INTERNAL_SERVER_ERROR,
+                               "Could not access the cache directory. See the terminal.") from exc
+        result = {"removed": removed, "failed": failed}
+        if failed:
+            items = "item" if removed == 1 else "items"
+            result["error"] = (f"Removed {removed} {items} from the cache. "
+                               f"Could not remove {failed}. See the terminal for details.")
+            self._json(result, HTTPStatus.INTERNAL_SERVER_ERROR)
+        else:
+            self._json(result)
 
     def _handle(self, handler) -> None:
         try:

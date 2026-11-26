@@ -18,7 +18,7 @@
           <div class="photo-dropzone">
             <button type="button" id="choose-photos" class="button-secondary" aria-describedby="photo-drop-help">Choose photos</button>
             <input type="file" id="photo-picker" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" hidden>
-            <p class="field-help" id="photo-drop-help">Drop photos anywhere in this window. One goes to Front. Four fill Front, Right, Left and Back in the order received.</p>
+            <p class="field-help" id="photo-drop-help">Drop photos anywhere in this window. One goes to Front. Four are matched by view names in the filenames when possible. Otherwise they fill Front, Right, Left and Back in file order.</p>
             <p class="field-help" id="photo-feedback" role="status" hidden></p>
           </div>
           <div class="field photo-field" data-photo-role="front">
@@ -90,6 +90,10 @@
         </div>
         <p class="field-help" id="history-message" role="status">Loading history…</p>
         <ul id="history-list" class="history-list" aria-label="Generation history"></ul>
+        <div class="history-tools">
+          <button type="button" class="button-secondary" id="clear-cache" aria-haspopup="dialog" disabled>Clear cache</button>
+          <p class="field-help" id="cache-status" role="status" hidden></p>
+        </div>
       </section>
     </div>
 
@@ -160,7 +164,7 @@
     </div>
   </main>
   <p class="drop-indicator" id="drop-indicator" aria-hidden="true">Drop photos to add them</p>
-  <dialog id="delete-dialog" aria-labelledby="delete-heading" aria-describedby="delete-target delete-description">
+  <dialog class="confirmation-dialog" id="delete-dialog" aria-labelledby="delete-heading" aria-describedby="delete-target delete-description">
     <h2 id="delete-heading">Delete generation?</h2>
     <p id="delete-target" class="selection-title"></p>
     <p id="delete-description"></p>
@@ -168,6 +172,16 @@
     <div class="dialog-actions">
       <button type="button" class="button-secondary" id="cancel-delete" autofocus>Cancel</button>
       <button type="button" class="button-danger" id="confirm-delete">Delete generation</button>
+    </div>
+  </dialog>
+  <dialog class="confirmation-dialog" id="cache-dialog" aria-labelledby="cache-heading" aria-describedby="cache-description cache-rebuild-note">
+    <h2 id="cache-heading">Clear LocalMesh cache?</h2>
+    <p id="cache-description">This permanently removes generated caches and temporary files under <code>LocalMesh/cache</code>, including any photo copies saved there during verification. LocalMesh keeps your generation history, saved models and model weights.</p>
+    <p id="cache-rebuild-note">The next generation may take longer while the caches rebuild.</p>
+    <p id="cache-error" class="message-error" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button type="button" class="button-secondary" id="cancel-cache" autofocus>Cancel</button>
+      <button type="button" class="button-danger" id="confirm-cache">Clear cache</button>
     </div>
   </dialog>
 </body>

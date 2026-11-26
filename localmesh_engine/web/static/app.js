@@ -10,6 +10,7 @@ const modelVariant = element('model-variant');
 const rotateControl = element('auto-rotate');
 const modeButtons = [...element('display-modes').querySelectorAll('button')];
 const deleteDialog = element('delete-dialog');
+const cacheDialog = element('cache-dialog');
 const runLog = element('run-log');
 const logOutput = element('log-output');
 
@@ -17,10 +18,13 @@ let runs = [];
 let selectedId = null;
 let selectedRun = null;
 let historyRequest = 0;
+let pendingHistoryRequest = null;
 let selectionRequest = 0;
 let modelRequest = 0;
 let pollTimer;
 let submitting = false;
+let clearingCache = false;
+let historyReady = false;
 let displayMode = 'textured';
 let requestedModel = null;
 let loadedRun = null;
@@ -61,6 +65,18 @@ async function request(url, options) {
   return data;
 }
 
+function photosByView(files) {
+  const byView = new Map();
+  for (const file of files) {
+    const stem = file.name.slice(0, file.name.lastIndexOf('.')).toLowerCase();
+    const words = stem.split(/[^\p{L}\p{N}]+/u);
+    const matches = imageRoles.filter((view) => words.includes(view));
+    if (matches.length !== 1 || byView.has(matches[0])) return null;
+    byView.set(matches[0], file);
+  }
+  return imageRoles.map((view) => byView.get(view));
+}
+
 function assignPhotos(files, role) {
   const message = element('generation-error');
   const feedback = element('photo-feedback');
@@ -80,17 +96,21 @@ function assignPhotos(files, role) {
     return;
   }
 
-  const roles = files.length === 1 ? [role ?? 'front'] : imageRoles;
-  for (const [index, current] of roles.entries()) {
-    const input = element(current);
+  const single = files.length === 1;
+  const roles = single ? [role ?? 'front'] : imageRoles;
+  const matched = single ? null : photosByView(files);
+  const ordered = matched ?? files;
+  for (const [index, view] of roles.entries()) {
     const transfer = new DataTransfer();
-    transfer.items.add(files[index]);
-    input.files = transfer.files;
+    transfer.items.add(ordered[index]);
+    element(view).files = transfer.files;
   }
-  if (roles.some((current) => current !== 'front')) element('extra-views').open = true;
-  setMessage(feedback, files.length === 1
-    ? `Added ${files[0].name} to ${capitalize(roles[0])}.`
-    : 'Added four photos. Check each angle before generating.');
+  if (roles.some((view) => view !== 'front')) element('extra-views').open = true;
+
+  let messageText = 'Added four photos in file order. Check each angle before generating.';
+  if (single) messageText = `Added ${files[0].name} to ${capitalize(roles[0])}.`;
+  else if (matched) messageText = 'Matched all four photos by filename.';
+  setMessage(feedback, messageText);
 }
 
 function draggedFile(event) {
@@ -116,11 +136,16 @@ function clearDrag() {
   markDropSlot(null);
 }
 
-function updateGenerateButton() {
+function updateRunControls() {
   const busy = isWebJobActive(selectedRun) || runs.some(isWebJobActive);
   const button = element('generate-button');
-  button.disabled = submitting || busy;
+  button.disabled = submitting || busy || clearingCache;
   button.textContent = submitting ? 'Submitting…' : busy ? 'Generation in progress' : 'Generate model';
+  const cacheBlocked = submitting || busy || clearingCache;
+  const clearCache = element('clear-cache');
+  clearCache.disabled = !historyReady || cacheBlocked;
+  clearCache.title = submitting || busy ? 'Wait for the generation to finish' : '';
+  element('confirm-cache').disabled = cacheBlocked;
 }
 
 function updateDeleteButton() {
@@ -268,7 +293,7 @@ function renderRun(run) {
   updateLog(run, differentRun);
 
   if (differentRun || JSON.stringify(run.images) !== JSON.stringify(previous?.images)) renderSources(run);
-  updateGenerateButton();
+  updateRunControls();
   updateDeleteButton();
   void updateModel(run);
 }
@@ -381,12 +406,13 @@ async function selectRun(id) {
 
 async function refreshHistory() {
   clearTimeout(pollTimer);
+  if (pendingHistoryRequest === historyRequest) return;
   const requestId = ++historyRequest;
-  const refresh = element('refresh-history');
-  refresh.disabled = true;
+  pendingHistoryRequest = requestId;
   try {
     const data = await request('/api/runs');
     if (requestId !== historyRequest) return;
+    historyReady = true;
     const signature = (list) => JSON.stringify(list.map((run) => [run.id, run.name, run.status, run.thumbnail_url, run.created_at]));
     const changed = signature(runs) !== signature(data.runs);
     runs = data.runs;
@@ -402,9 +428,9 @@ async function refreshHistory() {
     setMessage(element('history-message'), error.message);
     if (!selectedId) setMessage(element('viewer-message'), 'Generation history could not be loaded.');
   } finally {
+    if (pendingHistoryRequest === requestId) pendingHistoryRequest = null;
     if (requestId === historyRequest) {
-      refresh.disabled = false;
-      updateGenerateButton();
+      updateRunControls();
       schedulePoll();
     }
   }
@@ -431,15 +457,16 @@ for (const role of imageRoles) {
 window.addEventListener('dragenter', (event) => {
   if (!draggedFile(event)) return;
   event.preventDefault();
-  if (deleteDialog.open) return;
+  if (deleteDialog.open || cacheDialog.open) return;
   dragDepth++;
   document.body.classList.add('dragging-files');
 });
 window.addEventListener('dragover', (event) => {
   if (!draggedFile(event)) return;
   event.preventDefault();
-  event.dataTransfer.dropEffect = deleteDialog.open ? 'none' : 'copy';
-  if (deleteDialog.open) return;
+  const modalOpen = deleteDialog.open || cacheDialog.open;
+  event.dataTransfer.dropEffect = modalOpen ? 'none' : 'copy';
+  if (modalOpen) return;
   const slot = event.dataTransfer.items.length === 1 ? slotAt(event.target) : null;
   if (slot !== dropSlot) markDropSlot(slot);
 });
@@ -450,7 +477,7 @@ window.addEventListener('drop', (event) => {
   if (!draggedFile(event)) return;
   event.preventDefault();
   clearDrag();
-  if (deleteDialog.open) return;
+  if (deleteDialog.open || cacheDialog.open) return;
   assignPhotos([...event.dataTransfer.files], slotAt(event.target)?.dataset.photoRole);
   element('generation-heading').scrollIntoView({ block: 'nearest' });
 });
@@ -480,12 +507,11 @@ element('generation-form').addEventListener('submit', async (event) => {
   upload.append('projection', String(element('projection').checked));
 
   submitting = true;
-  updateGenerateButton();
+  updateRunControls();
   try {
     const run = await request('/api/runs', { method: 'POST', body: upload });
     historyRequest++;
     selectionRequest++;
-    element('refresh-history').disabled = false;
     runs = [run, ...runs.filter(({ id }) => id !== run.id)];
     selectedId = run.id;
     setMessage(element('history-message'), '');
@@ -498,7 +524,7 @@ element('generation-form').addEventListener('submit', async (event) => {
     setMessage(message, error.message);
   } finally {
     submitting = false;
-    updateGenerateButton();
+    updateRunControls();
     schedulePoll();
   }
 });
@@ -555,6 +581,42 @@ element('confirm-delete').addEventListener('click', async () => {
     deleting = confirm.disabled = cancel.disabled = false;
     confirm.textContent = 'Delete generation';
     updateDeleteButton();
+  }
+});
+
+const clearCache = element('clear-cache');
+const confirmCache = element('confirm-cache');
+const cancelCache = element('cancel-cache');
+clearCache.addEventListener('click', () => {
+  setMessage(element('cache-error'), '');
+  clearDrag();
+  cacheDialog.showModal();
+});
+cancelCache.addEventListener('click', () => cacheDialog.close());
+cacheDialog.addEventListener('cancel', (event) => {
+  if (clearingCache) event.preventDefault();
+});
+confirmCache.addEventListener('click', async () => {
+  const errorMessage = element('cache-error');
+  const status = element('cache-status');
+  clearingCache = cancelCache.disabled = true;
+  confirmCache.textContent = 'Clearing…';
+  setMessage(errorMessage, '');
+  setMessage(status, '');
+  updateRunControls();
+  try {
+    const { removed } = await request('/api/cache', { method: 'DELETE' });
+    const result = removed === 0 ? 'The cache is already empty.'
+      : `Cache cleared. Removed ${numbers.format(removed)} ${removed === 1 ? 'item' : 'items'}.`;
+    setMessage(status, result);
+    cacheDialog.close();
+  } catch (error) {
+    setMessage(errorMessage, error.message);
+  } finally {
+    clearingCache = cancelCache.disabled = false;
+    confirmCache.textContent = 'Clear cache';
+    updateRunControls();
+    if (!cacheDialog.open) clearCache.focus({ preventScroll: true });
   }
 });
 

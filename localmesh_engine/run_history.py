@@ -227,6 +227,23 @@ class RunHistory:
     def cli_lock(self, run_id: str):
         return process_lock(self._directory(run_id) / "cli.lock")
 
+    def cache_activity_lock(self, *, wait: bool = False):
+        return process_lock(self.root / ".cache-activity.lock", wait=wait)
+
+    def cli_generation_active(self) -> bool:
+        for record in self._managed_runs():
+            if record["origin"] != "cli":
+                continue
+            run_id = record["id"]
+            if not (self._directory(run_id) / "cli.lock").is_file():
+                continue
+            try:
+                with self.cli_lock(run_id):
+                    pass
+            except LockBusy:
+                return True
+        return False
+
     def recover_cli_runs(self) -> None:
         for record in self.list_runs():
             if record["origin"] != "cli" or record["status"] != "running":

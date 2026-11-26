@@ -11,8 +11,10 @@ import argparse
 import sys
 import time
 import traceback
+from contextlib import ExitStack
 from pathlib import Path
 
+from ._locking import LockBusy
 from .progress import english_stage
 from .run_history import SIDES, TIERS, RunHistory
 
@@ -75,25 +77,33 @@ def main(argv: list[str] | None = None) -> int:
     # Keep help and input validation independent of CUDA and the model weights.
     from . import config
 
-    carte = config.gpu_report()
-    print("GPU: %s, %.1f GB VRAM" % (carte.name, carte.total_vram_gb), file=sys.stderr)
-    if not config.palier_tenable(a.palier, carte.total_vram_gb):
-        print("The %s tier requires more VRAM than this GPU has."
-              % a.palier, file=sys.stderr)
-        return 3
-
-    sortie = a.vers.resolve()
-    sortie.mkdir(parents=True, exist_ok=True)
-
     history = RunHistory(config.RUNTIME_ROOT)
-    run = history.create_run(origin="cli", sources=sources, tier=a.palier,
-                             seed=a.graine, projection=a.projection)
-    run_id = run["id"]
-    depart = time.time()
-    with (history.cli_lock(run_id),
-          history.log_path(run_id).open("w", encoding="utf-8", buffering=1) as log):
-        print("GPU: %s, %.1f GB VRAM" % (carte.name, carte.total_vram_gb), file=log)
-        history.update_run(run_id, status="running", stage="Starting generation")
+    with ExitStack() as active_run:
+        try:
+            # Register a locked run before allowing cache cleanup to check for GPU work.
+            with history.cache_activity_lock(wait=True):
+                carte = config.gpu_report()
+                gpu_description = "GPU: %s, %.1f GB VRAM" % (carte.name, carte.total_vram_gb)
+                print(gpu_description, file=sys.stderr)
+                if not config.palier_tenable(a.palier, carte.total_vram_gb):
+                    print("The %s tier requires more VRAM than this GPU has."
+                          % a.palier, file=sys.stderr)
+                    return 3
+
+                sortie = a.vers.resolve()
+                sortie.mkdir(parents=True, exist_ok=True)
+                run = history.create_run(origin="cli", sources=sources, tier=a.palier,
+                                         seed=a.graine, projection=a.projection)
+                run_id = run["id"]
+                active_run.enter_context(history.cli_lock(run_id))
+                log = active_run.enter_context(history.log_path(run_id).open("w", encoding="utf-8", buffering=1))
+                print(gpu_description, file=log)
+                history.update_run(run_id, status="running", stage="Starting generation")
+        except LockBusy:
+            print("The LocalMesh runtime is busy. Try again after cache maintenance finishes.", file=sys.stderr)
+            return 1
+
+        depart = time.time()
 
         def report(line: str) -> None:
             print(line, file=sys.stderr, flush=True)
