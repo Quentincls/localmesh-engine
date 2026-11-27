@@ -37,6 +37,7 @@ the [changelog](CHANGELOG.md#v120--11-october-2026).
 [Results](#results) &nbsp;&middot;&nbsp;
 [Install](#install) &nbsp;&middot;&nbsp;
 [Use](#use) &nbsp;&middot;&nbsp;
+[Web UI](#local-web-interface) &nbsp;&middot;&nbsp;
 [Quality tiers](#quality-tiers) &nbsp;&middot;&nbsp;
 [Licence](#licence-and-credits)
 
@@ -259,6 +260,74 @@ two spellings are the same flag. Progress is written to
 standard error, one line per stage, so the result path on standard output
 stays clean. The four view path wants all three sides: an incomplete set is
 refused rather than silently downgraded.
+
+### Local web interface
+
+For a Windows checkout with `.venv` and the runtime in `LocalMesh/`, open
+PowerShell at the repository root.
+
+```powershell
+. .\Activate-LocalMesh.ps1
+python -m localmesh_engine.web serve
+```
+
+Open [LocalMesh in your browser](http://127.0.0.1:8765). On other setups,
+activate the Python 3.12 environment and set `LOCALMESH_ROOT` as shown in the
+install guide before running `serve`. The web app and 3D assets are served on
+loopback from the Python package. Add `--open` to launch your default browser.
+The Windows activation script defaults GPU caches to `LocalMesh/cache`.
+
+The screenshots use a synthetic camera and four rendered views.
+
+<div align="center">
+  <img src="assets/web-ui-overview.webp" alt="LocalMesh web interface with four photos matched by filename, generation settings and history on the left, a textured camera in the center, and four source views on the right" width="100%">
+</div>
+
+Drop a photo anywhere in the browser window to fill the front slot, or drop
+it on a specific photo field. To add all four photos together, include each
+view name as a separate word in its filename, such as `statue-front.png`,
+`statue-right.png`, `statue-left.png` and `statue-back.png`. The app matches
+the names to the four fields regardless of file order. If any view is unclear
+or repeated, all four fill Front, Right, Left and Back in file order. Start with
+Standard quality, a blank seed and photo projection on. Follow the progress
+and log after starting the run.
+
+In the viewer, left-drag to orbit, right-drag to pan and scroll to zoom.
+Toggle **Auto-rotate** for a slow turntable.
+Switch between **Textured**, **Shadows**, **Solid** and **Wireframe** without
+losing your camera position. If the run has an AI texture variant, you can
+preview and download it as a separate GLB. Open **Generation log** to see the
+latest lines. The log follows new output when scrolled to the bottom and keeps
+your place when you scroll up.
+
+<div align="center">
+  <img src="assets/web-ui-wireframe-log.webp" alt="Wireframe mode showing the camera mesh with the Generation log expanded below it" width="680">
+</div>
+
+The CLI and web app store run history under `LOCALMESH_ROOT/library/runs`, with
+copies of the input photos and generated files. Reusing a seed preserves each
+run in history. CLI exports also go to `--to` and take additional disk space.
+Select a history item and confirm **Delete** to permanently remove the archived
+model, saved photo copies and log, along with any matching output files. The
+confirmation distinguishes the saved photo copies from the original photos.
+The web app lists earlier `model_<seed>.glb` files in `out/` by default. Set
+`serve --legacy-dir DIRECTORY` to browse another output folder. To link a model
+to a known original, import it from the same activated shell.
+
+```powershell
+python -m localmesh_engine.web import .\out\model_42.glb --front .\photo.png --tier draft
+```
+
+Use **Clear cache** below History to remove temporary files under
+`LOCALMESH_ROOT/cache`. Clear it between generations when you need to reclaim
+space or discard temporary diagnostics. Model weights and saved runs live in
+separate folders. The next run can take longer while GPU caches rebuild.
+
+<div align="center">
+  <img src="assets/web-ui-cache.webp" alt="Clear LocalMesh cache confirmation with details about temporary files and cache rebuild time">
+</div>
+
+### Python API
 
 The Python API is the same engine, without the process boundary.
 

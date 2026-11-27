@@ -81,12 +81,12 @@ def manquants(config) -> list[str]:
     """
     d = dossier(config)
     absents = []
-    for nom, chemin in (("poids du mesureur", d / "model.safetensors"),
-                        ("description du mesureur", d / "config.json")):
+    for nom, chemin in (("camera model weights", d / "model.safetensors"),
+                        ("camera model configuration", d / "config.json")):
         if not chemin.exists():
             absents.append(nom)
     if not _code_range(d) and not _code_installe():
-        absents.append("code du mesureur (depth_anything_3)")
+        absents.append("camera model code (depth_anything_3)")
     return absents
 
 
@@ -164,9 +164,9 @@ def _paire(modele, images):
         return v
 
     if modele.training:
-        raise ValueError("La mesure demande le mode evaluation")
+        raise ValueError("Camera measurement requires evaluation mode")
     if images.ndim != 5 or tuple(images.shape[:3]) != (1, 4, 3):
-        raise ValueError("Quatre vues RVB attendues")
+        raise ValueError("Camera measurement requires four RGB views")
 
     traits, aux = modele.backbone(
         images, cam_token=None, export_feat_layers=[], ref_view_strategy="first")
@@ -207,7 +207,7 @@ def _charger(config):
     modele = create_object(OmegaConf.create(conf))
     poids = load_file(str(d / "model.safetensors"))
     if not all(k.startswith("model.") for k in poids):
-        raise RuntimeError("Poids du mesureur inattendus")
+        raise RuntimeError("Unexpected camera model weights")
     poids = {k[6:]: v for k, v in poids.items()}
 
     nommes = dict(modele.named_parameters(remove_duplicate=False))
@@ -216,7 +216,7 @@ def _charger(config):
     for k in set(modele.state_dict()) - set(poids):
         alias = par_identite.get(id(nommes[k]))
         if alias is None:
-            raise RuntimeError("Poids absent et non partagé : %s" % k)
+            raise RuntimeError("Missing camera model weight with no shared value: %s" % k)
         poids[k] = poids[alias]
     modele.load_state_dict(poids, strict=True)
     del poids
@@ -357,7 +357,7 @@ def mesurer(config, vues: dict) -> dict:
         if images.ndim == 4:
             images = images[None]
         if images.ndim != 5 or tuple(images.shape[:3]) != (1, 4, 3):
-            raise RuntimeError("Le lecteur d'images a rendu %s"
+            raise RuntimeError("The image processor returned shape %s"
                                % (tuple(images.shape),))
         modele = _charger(config)
         images = images.cuda()

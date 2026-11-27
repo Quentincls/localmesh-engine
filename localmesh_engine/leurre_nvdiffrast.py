@@ -48,10 +48,8 @@ import types
 log = logging.getLogger("localmesh_engine.leurre_nvdiffrast")
 
 _RAISON = (
-    "nvdiffrast a été retiré de LocalMesh : sa licence (NVIDIA Source Code "
-    "License) interdit l'usage commercial. La rastérisation de l'atlas UV "
-    "passe par localmesh_engine.uvraster. Si vous lisez ceci, un chemin d'o_voxel "
-    "appelle encore le rastériseur d'origine et il faut le porter aussi."
+    "LocalMesh rasterizes the UV atlas with localmesh_engine.uvraster. "
+    "Update the o_voxel caller to use it."
 )
 
 
@@ -62,7 +60,7 @@ class _Refus:
         self._quoi = quoi
 
     def __call__(self, *_a, **_k):
-        raise RuntimeError(f"{self._quoi} : {_RAISON}")
+        raise RuntimeError(f"{self._quoi}: {_RAISON}")
 
 
 def _sous_le_runtime(chemin: str | None) -> bool:
@@ -104,7 +102,7 @@ def _deja_present() -> bool:
         return False
     origine = spec.origin or next(iter(spec.submodule_search_locations or []), None)
     if _sous_le_runtime(origine):
-        log.info("nvdiffrast du runtime ignoré, le leurre prime : %s", origine)
+        log.info("Using the nvdiffrast stub instead of the runtime copy: %s", origine)
         return False
     return True
 
@@ -114,7 +112,7 @@ def verifier() -> None:
     arriver sur une installation cliente."""
     m = sys.modules.get("nvdiffrast")
     if m is not None and not getattr(m, "_leurre", False):
-        log.warning("le vrai nvdiffrast est chargé : %s",
+        log.warning("The real nvdiffrast package is loaded: %s",
                     getattr(m, "__file__", "?"))
 
 
@@ -143,5 +141,5 @@ def installer() -> bool:
 
     sys.modules["nvdiffrast"] = racine
     sys.modules["nvdiffrast.torch"] = torche
-    log.info("leurre nvdiffrast pose : la rasterisation passe par uvraster")
+    log.info("Installed the nvdiffrast stub. Rasterization uses uvraster.")
     return True

@@ -128,7 +128,7 @@ def _charger():
     poids = _poids()
     if poids is None:
         # Jamais `from_pretrained("None")` : il partirait chercher sur le réseau.
-        raise RuntimeError("poids MoGe-2 absents : recalage par le relief sauté")
+        raise RuntimeError("MoGe-2 weights are missing. Skipping depth alignment.")
     return v2.MoGeModel.from_pretrained(str(poids)).cuda().eval()
 
 

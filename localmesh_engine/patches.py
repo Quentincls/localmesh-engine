@@ -45,7 +45,7 @@ def _sortir_nvdiffrast() -> None:
     try:
         import o_voxel
     except Exception as exc:                                  # noqa: BLE001
-        log.warning("o_voxel introuvable, correctif non applique : %s", exc)
+        log.warning("Skipped the UV atlas patch because o_voxel is unavailable: %s", exc)
         return
 
     if getattr(o_voxel.postprocess, "_lumengen_sans_nvdiffrast", False):
@@ -55,7 +55,7 @@ def _sortir_nvdiffrast() -> None:
 
     o_voxel.postprocess.to_glb = sans_nvdiffrast.to_glb
     o_voxel.postprocess._lumengen_sans_nvdiffrast = True
-    log.info("atlas UV rasterise par uvraster (nvdiffrast non commercial)")
+    log.info("UV atlas rasterization uses uvraster")
 
 
 def _patch_rembg_dtype() -> None:

@@ -265,8 +265,7 @@ def maillage(config, traits_par_taille: dict, cellules, poids, graine: int,
                     # dans le produit. La phrase reste donc SANS CHIFFRE,
                     # ce qui la rend traduisible, et dit ce qu'il y a a
                     # faire ; la mesure, elle, va la ou on la cherchera.
-                    log.warning("passe fine refusee : %d cellules pour un "
-                                "plafond de %d sur cette carte",
+                    log.warning("Fine pass exceeds the GPU limit (%d cells, limit %d)",
                                 len(coords), plafond)
                     raise RuntimeError(
                         "This subject is too detailed for this card with "

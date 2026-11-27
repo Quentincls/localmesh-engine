@@ -222,6 +222,18 @@ $env:LOCALMESH_ROOT = "D:\LocalMesh"        # this shell only
 setx LOCALMESH_ROOT "D:\LocalMesh"          # every new shell
 ```
 
+When the checkout has a Python 3.12 `.venv` and a `LocalMesh` directory, use
+the PowerShell helper from the repository root:
+
+```powershell
+.\Activate-LocalMesh.ps1
+python --version
+```
+
+The helper runs `.venv\Scripts\Activate.ps1` and sets `LOCALMESH_ROOT` to
+the checkout's `LocalMesh` directory for the current shell. For this checkout
+the path is `D:\localmesh-engine\LocalMesh\`.
+
 Linux:
 
 ```
@@ -255,7 +267,7 @@ per stage, and the shape stage ticks once per sampling step. The path of the
 file goes to stdout, resolved to an absolute path.
 
 ```
-carte : NVIDIA GeForce RTX 4060 Laptop GPU, 8.0 Go
+GPU: NVIDIA GeForce RTX 4060 Laptop GPU, 8.0 GB VRAM
     0.0%  loading models
     5.0%  models ready
     7.0%  reading reference
@@ -264,22 +276,25 @@ carte : NVIDIA GeForce RTX 4060 Laptop GPU, 8.0 Go
     ...   generating shape, once per sampling step, up to 45.0%
    47.0%  cleaning the mesh
    65.0%  texturing
+   70.0%  encoding the shape
+   78.0%  sampling the texture
+   86.0%  baking the atlas
    90.0%  finishing
-   91.0%  projection de la photo
-    ...   projection de la photo, up to 95.0%
+   91.0%  projecting the photo
+    ...   projecting the photo, up to 95.0%
    96.0%  cleaning the atlas
    98.0%  rendering the thumbnail
   100.0%  done
 C:\work\sortie\model_42.glb
-<faces> faces, <seconds> s, pic <peak> Go, graine 42
+<faces> faces, <seconds> s, peak VRAM <peak> GB, seed 42
 ```
 
 Some of those lines depend on which bake path the run takes, so the list can be
-a line or two shorter. `projection de la photo` runs on the default texturing
+a line or two shorter. `projecting the photo` runs on the default texturing
 path, and `cleaning the atlas` only on the `to_glb` fallback, so a run prints
-one or the other. The projection label is in French, like the code, and like
-every progress label it is part of the API. The last two lines are what
-success looks like: a `model_<seed>.glb` in the output folder, then the face
+one or the other. The CLI displays each stage in English. Engine callbacks
+receive the original [progress labels](RECIPES.md#progress-labels). A successful
+run prints a `model_<seed>.glb` path in the output folder, then the face
 count, the wall clock, the peak on the card and the seed. When the projection
 painted something, `model_<seed>.ai.glb` sits beside it: the same mesh with the
 texture as the model drew it, about the same size.

@@ -104,3 +104,12 @@ localmesh_engine = [
   "_vendu_moge/model/dinov2/LICENSE",
   "banc/sujets/*.md",
 ]
+"localmesh_engine.web" = [
+  "static/*.html",
+  "static/*.css",
+  "static/*.js",
+  "static/vendor/three/LICENSE",
+  "static/vendor/three/*.md",
+  "static/vendor/three/build/*.js",
+  "static/vendor/three/examples/jsm/*/*.js",
+]

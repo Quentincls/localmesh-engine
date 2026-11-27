@@ -85,4 +85,4 @@ def __getattr__(nom):
         return importlib.import_module(".config", __name__)
     if nom in ("Engine", "GenerateResult", "GenerateSettings", "JobCancelled"):
         return getattr(importlib.import_module(".pipeline", __name__), nom)
-    raise AttributeError("module %r n'a pas d'attribut %r" % (__name__, nom))
+    raise AttributeError("module %r has no attribute %r" % (__name__, nom))

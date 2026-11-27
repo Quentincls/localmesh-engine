@@ -62,7 +62,6 @@ def modeles() -> Path:
                 return a_cote
 
     raise RuntimeError(
-        "Impossible de situer le dossier des modeles : ni `racine_modeles`, "
-        "ni LOCALMESH_ROOT, ni LUMENGEN_ROOT, ni un dossier `models` a cote "
-        "du moteur."
+        "Could not find the models directory. Set LOCALMESH_ROOT or place "
+        "a models directory next to the engine."
     )

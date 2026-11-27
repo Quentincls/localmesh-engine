@@ -232,6 +232,11 @@ def bootstrap() -> None:
     # flex_gemm is the default sparse conv backend and is one of our prebuilt
     # Blackwell wheels, so we keep it rather than pulling in spconv.
     os.environ.setdefault("SPARSE_CONV_BACKEND", "flex_gemm")
+    if cache_path := os.environ.get("FLEX_GEMM_AUTOTUNE_CACHE_PATH"):
+        cache_dir = Path(cache_path).resolve().parent
+        if cache_dir.is_relative_to(CACHE_ROOT.resolve()):
+            # A web cleanup can remove this directory while the launcher stays open.
+            cache_dir.mkdir(parents=True, exist_ok=True)
 
     # EXR is how the HDRI environment maps are loaded for the preview render.
     os.environ.setdefault("OPENCV_IO_ENABLE_OPENEXR", "1")
