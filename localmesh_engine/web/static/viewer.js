@@ -52,7 +52,6 @@ export class MeshViewer {
     this.camera = new PerspectiveCamera(40, 1, 0.01, 100);
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
-    this.controls.enablePan = false;
     this.controls.autoRotateSpeed = 1;
     this.controls.addEventListener('change', () => this.invalidate());
     canvas.addEventListener('keydown', (event) => this.moveCamera(event));

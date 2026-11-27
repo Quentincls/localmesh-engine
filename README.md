@@ -292,8 +292,8 @@ or repeated, all four fill Front, Right, Left and Back in file order. Start with
 Standard quality, a blank seed and photo projection on. Follow the progress
 and log after starting the run.
 
-In the viewer, drag to orbit, scroll to zoom and toggle **Auto-rotate** for a
-slow turntable.
+In the viewer, left-drag to orbit, right-drag to pan and scroll to zoom.
+Toggle **Auto-rotate** for a slow turntable.
 Switch between **Textured**, **Shadows**, **Solid** and **Wireframe** without
 losing your camera position. If the run has an AI texture variant, you can
 preview and download it as a separate GLB. Open **Generation log** to see the
